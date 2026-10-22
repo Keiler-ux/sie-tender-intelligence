@@ -36,6 +36,7 @@ OCR des PDF scannés (facultatif) : installer Tesseract avec la langue français
 
 ```bash
 python scripts/generer_donnees_fictives.py exemples     # DCE, archives, métré et devis inventés
+python scripts/generer_dce_test.py exemples/dce_test      # 3 autres DCE : lot unique, 3 lots, DCE incomplet
 python scripts/demo_bout_en_bout.py exemples            # parcours F1 à F7 en ligne de commande
 python -m pytest -q                                      # tests
 ```

@@ -37,10 +37,13 @@ DONNEES = Path(os.getenv("SIE_DATA", "/data" if Path("/data").is_dir() else "don
 @st.cache_resource
 def preparer_demo() -> None:
     """Mode démo (SIE_DEMO=1) : données fictives et archives indexées au premier lancement."""
-    if (DONNEES / "exemples" / "archives_fictives").exists() and INDEX.exists():
-        return
     import sys
     sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+    if not (DONNEES / "exemples" / "dce_test").exists():
+        from generer_dce_test import generer as generer_dce_test
+        generer_dce_test(DONNEES / "exemples" / "dce_test")
+    if (DONNEES / "exemples" / "archives_fictives").exists() and INDEX.exists():
+        return
     from generer_donnees_fictives import generer
     generer(DONNEES / "exemples")
     Bibliotheque.indexer(DONNEES / "exemples" / "archives_fictives").sauver(INDEX)
@@ -128,6 +131,11 @@ if page == "Affaires":
                     z.write(f, f.relative_to(exemples))
         st.download_button("Télécharger le métré et les devis fictifs (pour les étapes 3, 5 et 7)", tampon.getvalue(),
                            file_name="chiffrage_fictif.zip")
+        autres = sorted((exemples / "dce_test").glob("*.zip"))
+        if autres:
+            st.caption("Autres DCE fictifs à télécharger puis déposer ci-dessous : lot unique, 3 lots, DCE incomplet.")
+            for z in autres:
+                st.download_button(f"Télécharger {z.name}", z.read_bytes(), file_name=z.name, key=z.name)
     st.subheader("Nouvelle affaire : déposer le DCE")
     fichiers = st.file_uploader("Pièces du DCE (PDF, Word, Excel, plans) ou une archive ZIP", accept_multiple_files=True)
     if st.button("Créer et analyser", disabled=not fichiers):

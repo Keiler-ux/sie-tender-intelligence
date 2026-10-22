@@ -44,7 +44,7 @@ PIECES_CONNUES: list[tuple[str, str, str]] = [
     (r"attestations? d'assurances?|assurance (?:responsabilite civile|decennale)", "Attestations d'assurance (RC, décennale)", "candidature"),
     (r"\burssaf\b|attestation de vigilance", "Attestation de vigilance URSSAF", "candidature"),
     (r"attestation (?:de regularite )?fiscale", "Attestation de régularité fiscale", "candidature"),
-    (r"qualifelec|qualibat|certificats? de qualification", "Certificats de qualification", "candidature"),
+    (r"qualifelec|qualibat|\bapsad\b|certificats? de qualification", "Certificats de qualification", "candidature"),
     (r"references? (?:de travaux|similaires|de chantiers?)|liste des (?:principaux )?travaux", "Références de travaux similaires", "candidature"),
     (r"moyens humains et (?:techniques|materiels)|effectifs? (?:moyens )?annuels?", "Moyens humains et matériels", "candidature"),
     (r"acte d'engagement|\bae\b", "Acte d'engagement", "offre"),
@@ -58,7 +58,7 @@ PIECES_CONNUES: list[tuple[str, str, str]] = [
     (r"\brib\b|releve d'identite bancaire", "RIB", "offre"),
 ]
 
-_CTX_PIECES = re.compile(r"(?:pieces?|documents?|elements?)\s+(?:a\s+(?:fournir|produire|remettre|joindre)|constitutifs?|demandes|exiges)|contenu (?:du|des) (?:dossier|plis?|offres?|candidatures?)|(?:le|les) candidats? (?:doit|doivent|devront) (?:fournir|produire|remettre|joindre)|(?:dossier|pli|offre) (?:comprendra|contiendra|comporte)", I)
+_CTX_PIECES = re.compile(r"(?:pieces?|documents?|elements?)\s+(?:a\s+(?:fournir|produire|remettre|joindre)|constitutifs?|demandes|exiges)|contenu (?:du|des) (?:dossier|plis?|offres?|candidatures?)|pieces? (?:de|de la|de l'|au titre de la) ?(?:candidature|offre)|au titre de (?:la candidature|l'offre)|(?:le|les) candidats? (?:doit|doivent|devront) (?:fournir|produire|remettre|joindre)|(?:dossier|pli|offre) (?:comprendra|contiendra|comporte)", I)
 
 
 def _cherche(liste: list[str], texte_norm: str) -> bool:

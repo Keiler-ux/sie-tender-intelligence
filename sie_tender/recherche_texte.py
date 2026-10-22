@@ -34,11 +34,24 @@ def source(piece: Piece, page_num: int, texte_page: str, debut: int, fin: int) -
     )
 
 
+# Ligne coupée par la mise en page du PDF : la suite commence par une minuscule.
+_SUITE = re.compile(r"\n(?P<suite>[a-zà-ÿ(][^\n.]{0,150})")
+
+
+def _avec_suite(texte: str, m: re.Match, valeur: str) -> str:
+    fin = m.end("v")
+    if valeur and valeur[-1] not in ".;:!?" and (s := _SUITE.match(texte, fin)):
+        return valeur + " " + s.group("suite")
+    return valeur
+
+
 def iter_matches(pieces: list[Piece], motif: re.Pattern) -> Iterator[Trouvaille]:
     for piece in pieces:
         for page in piece.pages:
             for m in motif.finditer(page.texte):
                 valeur = (m.group("v") if "v" in motif.groupindex else m.group(0)) or ""
+                if "v" in motif.groupindex and m.group("v"):
+                    valeur = _avec_suite(page.texte, m, valeur)
                 valeur = re.sub(r"\s+", " ", valeur).strip(" :;,.-–")
                 yield Trouvaille(valeur, source(piece, page.numero, page.texte, m.start(), m.end()), m)
 

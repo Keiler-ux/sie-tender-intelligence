@@ -73,6 +73,7 @@ _LOT_LIGNE = re.compile(
     r"^\s*(?:[-•*]\s*)?lot\s*(?:n\s*[°o]\s*)?(?P<num>\d{1,2})\s*[:\-–.)]?\s*(?P<intitule>[A-ZÀ-Ýa-zà-ý][^\n]{2,100})$",
     I | re.M,
 )
+_LOT_UNIQUE = re.compile(r"lot unique|n'est pas alloti|pas d'allotissement|non alloti", I)
 
 _ALERTES = [
     (re.compile(r"visite[^.\n]{0,60}obligatoire", I), "Visite obligatoire"),
@@ -100,6 +101,11 @@ def extraire_lots(pieces: list[Piece]) -> list[Lot]:
             continue
         if num not in lots:
             lots[num] = Lot(numero=num, intitule=intitule, source=t.source)
+    # Marché non alloti : un seul lot, pour que SIE puisse le retenir.
+    if not lots:
+        t = premier(pieces_par_priorite(pieces, _ORDRE), [_LOT_UNIQUE])
+        if t:
+            lots["1"] = Lot(numero="1", intitule="Lot unique", source=t.source)
     # Pièces techniques par lot sans ligne de liste : on garde le lot, intitulé à vérifier.
     for p in pieces:
         if p.lot and p.lot not in lots:

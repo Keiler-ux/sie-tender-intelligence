@@ -114,3 +114,21 @@ def test_f3_a_f7(donnees, tmp_path):
     assert any(k.gravite == "bloquant" and k.objet == "Décision" for k in constats)
     zip_path = exporter_dossier(a)
     assert zip_path.exists()
+
+
+def test_dce_de_test_varies(tmp_path):
+    from generer_dce_test import generer as generer_tests
+    zips = {z.stem: z for z in generer_tests(tmp_path)}
+
+    c = analyser_dce(zips["dce_college_lot_unique"], aujourdhui=date(2026, 10, 22))
+    assert c.fiche.date_limite_remise.valeur == "15/12/2026 à 16h00"
+    assert c.fiche.visite_obligatoire.valeur == "non"
+    assert [l.intitule for l in c.lots] == ["Lot unique"]
+
+    c = analyser_dce(zips["dce_hopital_3_lots"], aujourdhui=date(2026, 10, 22))
+    assert len(c.lots) == 3 and c.fiche.visite_obligatoire.valeur == "oui"
+    assert c.fiche.objet.valeur.endswith("du bâtiment B (médecine et SSR)")  # ligne coupée recollée
+
+    c = analyser_dce(zips["dce_bailleur_incomplet"], aujourdhui=date(2026, 10, 22))
+    assert c.fiche.date_limite_remise.statut == Statut.A_VERIFIER and c.fiche.date_limite_remise.valeur is None
+    assert all(cr.statut == Statut.A_VERIFIER for cr in c.criteres)  # 60 + 30 = 90 %

@@ -49,6 +49,38 @@ streamlit run app.py
 
 Puis dans le navigateur : « Affaires » pour déposer un DCE, puis les étapes 1 à 7 dans l'ordre.
 
+## Version téléchargeable (gratuite)
+
+Chaque étiquette `v*` poussée sur GitHub publie une archive dans l'onglet **Releases** du dépôt (workflow `release.yml`).
+
+```bash
+git tag v0.2.0 && git push --tags
+```
+
+Pour l'utilisateur : installer Python 3.11+, décompresser l'archive, puis double-cliquer sur `lancer_windows.bat` (Windows) ou `lancer_mac.command` (Mac ; si macOS bloque le fichier : clic droit, Ouvrir). Le premier lancement installe les dépendances. Les données restent sur l'ordinateur, dans le dossier `affaires/`.
+
+## Version web (gratuite, Streamlit Community Cloud)
+
+1. Se connecter sur [share.streamlit.io](https://share.streamlit.io) avec le compte GitHub propriétaire du dépôt.
+2. **Create app** → dépôt `Keiler-ux/sie-tender-intelligence`, branche `main`, fichier `app.py`.
+3. **Advanced settings** → Python 3.12, et dans **Secrets** :
+   ```toml
+   SIE_MOT_DE_PASSE = "un-mot-de-passe-long"
+   SIE_DEMO = "1"
+   ```
+4. **Deploy**. Dans les réglages de l'application, garder la visibilité privée et inviter les membres de l'équipe.
+
+À savoir : le stockage y est temporaire (les affaires disparaissent au redémarrage) et les fichiers sont hébergés chez Streamlit. Cette version est une démonstration : **aucun document SIE** sans l'accord écrit de SIE.
+
+## Docker (serveur SIE ou autre hébergeur)
+
+```bash
+docker build -t sie-tender .
+docker run -p 8501:8501 -v sie_donnees:/data -e SIE_MOT_DE_PASSE=... sie-tender
+```
+
+`SIE_DEMO=1` ajoute les données fictives. Les affaires sont conservées dans le volume `/data`.
+
 ## Ligne de commande
 
 ```bash

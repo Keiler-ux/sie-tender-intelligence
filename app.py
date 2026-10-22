@@ -31,6 +31,38 @@ st.set_page_config(page_title="SIE · Aide aux appels d'offres", layout="wide")
 
 ESPACE = EspaceTravail(os.getenv("SIE_ESPACE", "affaires"))
 INDEX = Path(os.getenv("SIE_INDEX", "archives_index.json"))
+DONNEES = Path(os.getenv("SIE_DATA", "/data" if Path("/data").is_dir() else "donnees_demo"))
+
+
+@st.cache_resource
+def preparer_demo() -> None:
+    """Mode démo (SIE_DEMO=1) : données fictives et archives indexées au premier lancement."""
+    if (DONNEES / "exemples" / "archives_fictives").exists() and INDEX.exists():
+        return
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent / "scripts"))
+    from generer_donnees_fictives import generer
+    generer(DONNEES / "exemples")
+    Bibliotheque.indexer(DONNEES / "exemples" / "archives_fictives").sauver(INDEX)
+
+# Accès protégé par mot de passe dès que SIE_MOT_DE_PASSE est défini (obligatoire en ligne).
+_MDP = os.getenv("SIE_MOT_DE_PASSE")
+if _MDP and not st.session_state.get("connecte"):
+    import hmac
+
+    st.title("SIE · Aide aux appels d'offres")
+    saisie = st.text_input("Mot de passe", type="password")
+    if st.button("Entrer"):
+        if hmac.compare_digest(saisie.encode(), _MDP.encode()):
+            st.session_state["connecte"] = True
+            st.rerun()
+        st.error("Mot de passe incorrect.")
+    st.stop()
+if os.getenv("SIE_DEMO") == "1" or os.getenv("SIE_EXEMPLES") == "1":
+    preparer_demo()
+if os.getenv("SIE_DEMO") == "1":
+    st.warning("Version de démonstration : n'y déposez aucun document SIE, uniquement des données fictives.")
+
 ETAPES = ["Affaires", "1. Fiche GO / NO GO", "2. Analyse par lot", "3. Quantités", "4. Cotations",
           "5. Devis et DPGF", "6. Mémoire technique", "7. Contrôle et dossier", "Archives"]
 
@@ -77,6 +109,25 @@ if page == "Affaires":
         if st.button("Ouvrir"):
             st.session_state["affaire"] = choix[0]
             st.success(f"Affaire {choix[1]} ouverte.")
+    exemples = DONNEES / "exemples"
+    if exemples.exists():
+        st.subheader("Démonstration")
+        st.caption("Affaire fictive : DCE d'une école, archives, métré et devis inventés.")
+        if st.button("Créer l'affaire de démonstration"):
+            a = ESPACE.creer()
+            for f in (exemples / "dce_fictif_valbourg").iterdir():
+                a.deposer("dce", f.name, f.read_bytes())
+            with st.spinner("Analyse du DCE fictif…"):
+                analyser_affaire(a, biblio())
+            st.session_state["affaire"] = a.id
+            st.success("Affaire de démonstration créée. Passe à l'étape 1.")
+        tampon = io.BytesIO()
+        with zipfile.ZipFile(tampon, "w") as z:
+            for f in sorted((exemples / "chiffrage_fictif").rglob("*")):
+                if f.is_file():
+                    z.write(f, f.relative_to(exemples))
+        st.download_button("Télécharger le métré et les devis fictifs (pour les étapes 3, 5 et 7)", tampon.getvalue(),
+                           file_name="chiffrage_fictif.zip")
     st.subheader("Nouvelle affaire : déposer le DCE")
     fichiers = st.file_uploader("Pièces du DCE (PDF, Word, Excel, plans) ou une archive ZIP", accept_multiple_files=True)
     if st.button("Créer et analyser", disabled=not fichiers):

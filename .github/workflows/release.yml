@@ -1,0 +1,31 @@
+# Publie une version téléchargeable à chaque étiquette v* (ex. : git tag v0.1.0 && git push --tags)
+name: Version téléchargeable
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt && python -m pytest -q
+      - name: Archive
+        run: |
+          NOM=sie-tender-intelligence-${GITHUB_REF_NAME}
+          git archive --format=zip --prefix=$NOM/ -o $NOM.zip HEAD
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: sie-tender-intelligence-*.zip
+          body: |
+            Version téléchargeable de l'outil SIE Tender Intelligence.
+            1. Installer Python 3.11 ou plus récent (python.org).
+            2. Décompresser l'archive.
+            3. Double-cliquer sur lancer_windows.bat (Windows) ou lancer_mac.command (Mac).
+            L'outil s'ouvre dans le navigateur ; les données restent sur l'ordinateur.

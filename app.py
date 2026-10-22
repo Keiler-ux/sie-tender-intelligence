@@ -103,7 +103,7 @@ elif page == ETAPES[1]:
     lignes = [{"cle": k, "Champ": LIBELLES.get(k, k), "Valeur": ch.valeur or "", "Statut": STATUTS[ch.statut],
                "Source": ref(ch.source), "Extrait": ch.source.extrait if ch.source else ""} for k, ch in c.fiche.champs().items()]
     df = st.data_editor(pd.DataFrame(lignes), disabled=["cle", "Champ", "Statut", "Source", "Extrait"], hide_index=True,
-                        column_config={"cle": None}, use_container_width=True, key="fiche")
+                        column_config={"cle": None}, width='stretch', key="fiche")
     if c.fiche.alertes:
         st.subheader("Alertes")
         for al in c.fiche.alertes:
@@ -111,7 +111,7 @@ elif page == ETAPES[1]:
     st.subheader("Lots")
     lots_df = st.data_editor(pd.DataFrame([{"N°": l.numero, "Intitulé": l.intitule, "Retenu": bool(l.retenu),
                                             "Responsable": l.responsable or "", "Source": ref(l.source)} for l in c.lots]),
-                             disabled=["N°", "Source"], hide_index=True, use_container_width=True, key="lots")
+                             disabled=["N°", "Source"], hide_index=True, width='stretch', key="lots")
     st.subheader("Décision de la direction")
     col1, col2 = st.columns(2)
     decision = col1.radio("Décision", ["(non décidée)", "GO", "NO GO"],
@@ -149,7 +149,7 @@ elif page == ETAPES[2]:
     cats = st.multiselect("Catégories", sorted({e.categorie.value for e in c.exigences}), default=sorted({e.categorie.value for e in c.exigences}))
     ex = [e for e in c.exigences if (e.lot or "commun") in lots and e.categorie.value in cats]
     st.dataframe(pd.DataFrame([{"Lot": e.lot or "commun", "Catégorie": e.categorie.value, "Précision": e.sous_categorie or "",
-                                "Exigence": e.texte, "Source": ref(e.source)} for e in ex]), use_container_width=True, hide_index=True)
+                                "Exigence": e.texte, "Source": ref(e.source)} for e in ex]), width='stretch', hide_index=True)
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Critères de notation")
@@ -163,7 +163,7 @@ elif page == ETAPES[2]:
         st.subheader("Pièces à fournir")
         st.dataframe(pd.DataFrame([{"Étape": p.etape, "Pièce": p.intitule, "Document proposé": p.document_propose or "",
                                     "Validité": p.validite.strftime("%d/%m/%Y") if p.validite else "", "Statut": STATUTS[p.statut]}
-                                   for p in c.pieces_a_fournir]), hide_index=True, use_container_width=True)
+                                   for p in c.pieces_a_fournir]), hide_index=True, width='stretch')
     with st.expander("Journal (hypothèses, erreurs, limites)"):
         for j in c.journal:
             st.write("- " + j)
@@ -186,7 +186,7 @@ elif page == ETAPES[3]:
     if c.quantites:
         df = pd.DataFrame([{"id": q.id, "Lot": q.lot, "N°": q.code, "Famille": q.famille, "Désignation": q.designation,
                             "Unité": q.unite, "Quantité": q.quantite, "Remarque": q.remarque or ""} for q in c.quantites])
-        df2 = st.data_editor(df, column_config={"id": None}, disabled=["Remarque"], hide_index=True, use_container_width=True, num_rows="dynamic")
+        df2 = st.data_editor(df, column_config={"id": None}, disabled=["Remarque"], hide_index=True, width='stretch', num_rows="dynamic")
         if st.button("Enregistrer et valider le métré", type="primary"):
             par_id = {q.id: q for q in c.quantites}
             nouvelles = []
@@ -219,7 +219,7 @@ elif page == ETAPES[4]:
         with st.expander(f"Lot {d.lot or '?'} · {d.famille} · {len(d.lignes)} lignes · retour avant {d.echeance_retour or 'à fixer'}"):
             st.dataframe(pd.DataFrame([{"Désignation": l.designation, "Unité": l.unite, "Quantité": l.quantite,
                                         "Caractéristiques (CCTP)": "\n".join(l.caracteristiques)} for l in d.lignes]),
-                         hide_index=True, use_container_width=True)
+                         hide_index=True, width='stretch')
             st.text_area("Brouillon de courriel", texte_courriel(c, d), height=260, key=f"mail_{d.id}")
     if c.demandes_cotation:
         chemin = exporter_demandes(c, a.dossier("exports") / "demandes_cotation.xlsx")
@@ -250,7 +250,7 @@ elif page == ETAPES[5]:
                                 "Poste associé": postes.get(l.ligne_quantite_id, "(aucun)"), "Score": l.score_association,
                                 "Validé": l.association_validee} for l in d.lignes])
             df2 = st.data_editor(df, column_config={"Poste associé": st.column_config.SelectboxColumn(options=options)},
-                                 disabled=["Désignation devis", "Score"], hide_index=True, use_container_width=True, key=f"dv_{d.id}")
+                                 disabled=["Désignation devis", "Score"], hide_index=True, width='stretch', key=f"dv_{d.id}")
             if st.button("Enregistrer les associations", key=f"save_{d.id}"):
                 for l, (_, r) in zip(d.lignes, df2.iterrows()):
                     l.ligne_quantite_id = inverse.get(r["Poste associé"])
@@ -275,7 +275,7 @@ elif page == ETAPES[5]:
                             "Qté": p.quantite, "Prix achat": p.prix_materiel, "Fournisseur": p.fournisseur,
                             "Temps pose h/u": p.temps_pose_h, "PU vente": p.prix_unitaire_vente, "Total": p.total,
                             "Alertes": " ; ".join(p.alertes)} for p in c.dpgf])
-        df2 = st.data_editor(df, column_config={"id": None}, hide_index=True, use_container_width=True,
+        df2 = st.data_editor(df, column_config={"id": None}, hide_index=True, width='stretch',
                              disabled=["Lot", "N°", "Désignation", "Unité", "Qté", "Fournisseur", "PU vente", "Total", "Alertes"])
         st.metric("Total HT", f"{sum(p.total or 0 for p in c.dpgf):,.2f} €".replace(",", " "))
         if st.button("Recalculer avec les temps de pose et valider"):
@@ -353,7 +353,7 @@ elif page == ETAPES[7]:
     st.metric("Points bloquants", nb_bloq)
     st.dataframe(pd.DataFrame([{"Gravité": k.gravite, "Objet": k.objet, "Constat": k.message} for k in
                                sorted(constats, key=lambda k: {"bloquant": 0, "a_verifier": 1}.get(k.gravite, 2))]),
-                 hide_index=True, use_container_width=True)
+                 hide_index=True, width='stretch')
     if st.button("Exporter le dossier (ZIP)", type="primary"):
         chemin = exporter_dossier(a)
         a.sauver()
@@ -381,4 +381,4 @@ elif page == "Archives":
                 st.write(p.texte)
         st.subheader("Documents administratifs")
         st.dataframe(pd.DataFrame([{"Affaire": d.affaire, "Fichier": d.fichier, "Type": d.type, "Validité": d.validite or ""}
-                                   for d in b.documents]), hide_index=True, use_container_width=True)
+                                   for d in b.documents]), hide_index=True, width='stretch')

@@ -12,3 +12,4 @@ exemples/archives_index.json
 .streamlit/secrets.toml
 exemples/affaires_demo/
 donnees_demo/
+/archives_index.json

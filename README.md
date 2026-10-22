@@ -54,7 +54,7 @@ Puis dans le navigateur : « Affaires » pour déposer un DCE, puis les étapes 
 Chaque étiquette `v*` poussée sur GitHub publie une archive dans l'onglet **Releases** du dépôt (workflow `release.yml`).
 
 ```bash
-git tag v0.2.0 && git push --tags
+git tag v0.2.0 && git push --tags   # ou : onglet Actions > Version téléchargeable > Run workflow
 ```
 
 Pour l'utilisateur : installer Python 3.11+, décompresser l'archive, puis double-cliquer sur `lancer_windows.bat` (Windows) ou `lancer_mac.command` (Mac ; si macOS bloque le fichier : clic droit, Ouvrir). Le premier lancement installe les dépendances. Les données restent sur l'ordinateur, dans le dossier `affaires/`.

@@ -1,14 +1,22 @@
-# Publie une version téléchargeable à chaque étiquette v* (ex. : git tag v0.1.0 && git push --tags)
+# Publie une version téléchargeable dans l'onglet Releases.
+# Deux façons : pousser une étiquette (git tag v0.2.0 && git push --tags),
+# ou lancer le workflow à la main depuis l'onglet Actions en indiquant la version.
 name: Version téléchargeable
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Numéro de version (ex. v0.1.0)"
+        required: true
 permissions:
   contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,12 +24,11 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt && python -m pytest -q
       - name: Archive
-        run: |
-          NOM=sie-tender-intelligence-${GITHUB_REF_NAME}
-          git archive --format=zip --prefix=$NOM/ -o $NOM.zip HEAD
+        run: git archive --format=zip --prefix=sie-tender-intelligence-$VERSION/ -o sie-tender-intelligence-$VERSION.zip HEAD
       - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
           files: sie-tender-intelligence-*.zip
           body: |
             Version téléchargeable de l'outil SIE Tender Intelligence.

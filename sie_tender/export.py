@@ -133,6 +133,10 @@ def exporter_trame_docx(c: Consultation, chemin: Path) -> None:
     for s in c.trame_memoire:
         titre = s.titre + (f" ({s.ponderation} %)" if s.ponderation else "")
         d.add_heading(titre, 1)
+        if s.contenu:
+            for para in s.contenu.split("\n\n"):
+                d.add_paragraph(para.strip())
+            continue
         if s.note or s.statut.value == "a_completer":
             r = d.add_paragraph().add_run(f"[À COMPLÉTER] {s.note or ''}".strip())
             r.bold = True

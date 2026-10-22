@@ -170,7 +170,54 @@ def generer(racine: Path) -> None:
         pdf(rep / "memoire_technique.pdf", a["memoire"])
         for fichier, texte in a["attestations"].items():
             pdf(rep / fichier, [texte])
-    print(f"DCE fictif : {dce}\nArchives fictives : {arch}")
+    # Données du groupe 2 : métré du bureau d'études, devis fournisseurs, pièces de réponse
+    g2 = racine / "chiffrage_fictif"
+    g2.mkdir(parents=True, exist_ok=True)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Lot 2 electricite"
+    ws.append(["Métré lot 2 - Groupe scolaire des Tilleuls (fictif)"])
+    ws.append([])
+    ws.append(["N°", "Désignation", "U", "Qté"])
+    ws.append([None, "ECLAIRAGE", None, None])
+    ws.append(["2.1", "Luminaire LED 600x600 encastré 36W", "u", 84])
+    ws.append(["2.2", "Détecteur de présence plafonnier", "u", 22])
+    ws.append(["2.3", "Bloc autonome d'éclairage de sécurité BAES", "u", 18])
+    ws.append([None, "DISTRIBUTION", None, None])
+    ws.append(["2.4", "Câble U1000 R2V 3G2,5", "ml", 1450])
+    ws.append(["2.5", "Chemin de câble dalle marine 100 mm", "ml", 210])
+    ws.append(["2.6", "Tableau divisionnaire étage", "u", 2])
+    ws.append([None, "SECURITE INCENDIE", None, None])
+    ws.append(["2.7", "Déclencheur manuel alarme type 4", "u", 12])
+    ws.append(["2.8", "Sirène d'alarme incendie", "u", "à compter"])
+    ws.append(["2.9", "Dépose des luminaires existants", "ft", 1])
+    wb.save(g2 / "metre_lot02.xlsx")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Devis n° 4521 - Elec Distribution Ouest (fictif)"])
+    ws.append(["Référence", "Désignation", "Unité", "Quantité", "Prix unitaire HT"])
+    ws.append(["LED600", "Dalle LED 600x600 36W encastrée", "u", 84, 42.50])
+    ws.append(["DET-P", "Détecteur présence plafond 360°", "u", 22, 38.00])
+    ws.append(["BAES", "BAES évacuation 45 lm", "u", 18, 29.90])
+    ws.append(["R2V325", "Câble R2V 3G2,5 U1000", "m", 1000, 1.12])
+    ws.append(["CDC100", "Chemin de câbles dalle marine 100", "ml", 210, 9.80])
+    wb.save(g2 / "devis_elec_distribution_ouest.xlsx")
+
+    pdf(g2 / "devis_lumiere_plus.pdf", [
+        "# DEVIS 2026-118 - Lumière Plus (fictif)",
+        "Dalle LED 600x600 36W 84 u 39,90 3 351,60",
+        "Detecteur de presence plafonnier 22 u 41,00 902,00",
+        "Bloc BAES evacuation 18 u 31,50 567,00",
+    ])
+
+    rep = g2 / "pieces_reponse"
+    rep.mkdir(exist_ok=True)
+    for nom in ("DC1_lettre_candidature.pdf", "DC2_declaration_candidat.pdf", "attestation_URSSAF_2026.pdf",
+                "certificat_Qualifelec.pdf", "references_travaux_similaires.pdf", "acte_engagement_signe.pdf",
+                "planning_previsionnel.pdf"):
+        pdf(rep / nom, [f"Document fictif : {nom}"])
+    print(f"DCE fictif : {dce}\nArchives fictives : {arch}\nChiffrage fictif : {g2}")
 
 
 if __name__ == "__main__":

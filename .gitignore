@@ -10,3 +10,4 @@ exemples/resultats/
 exemples/archives_index.json
 *.env
 .streamlit/secrets.toml
+exemples/affaires_demo/

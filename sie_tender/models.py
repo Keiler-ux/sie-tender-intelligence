@@ -167,6 +167,7 @@ class SectionMemoire(BaseModel):
     critere: Optional[str] = None
     ponderation: Optional[float] = None
     passages_proposes: list[Passage] = Field(default_factory=list)
+    contenu: Optional[str] = None  # texte retenu et adapté par SIE
     statut: StatutSection = StatutSection.A_COMPLETER
     note: Optional[str] = None
 
@@ -177,6 +178,98 @@ class Validation(BaseModel):
     valideur: str
     date: datetime = Field(default_factory=datetime.now)
     commentaire: Optional[str] = None
+
+
+# --- Groupe 2 : chiffrage et dossier final ------------------------------------------
+class SourceTableur(BaseModel):
+    fichier: str
+    feuille: Optional[str] = None
+    ligne: Optional[int] = None
+
+
+class LigneQuantite(BaseModel):
+    """Une ligne de métré saisie par le bureau d'études (F3)."""
+    id: str = Field(default_factory=lambda: nouvel_id("Q"))
+    lot: Optional[str] = None
+    code: Optional[str] = None
+    famille: Optional[str] = None
+    designation: str
+    unite: Optional[str] = None
+    quantite: Optional[float] = None
+    source: Optional[SourceTableur] = None
+    statut: Statut = Statut.EXTRAIT
+    remarque: Optional[str] = None
+
+
+class LigneCotation(BaseModel):
+    ligne_quantite_id: str
+    designation: str
+    unite: Optional[str] = None
+    quantite: Optional[float] = None
+    caracteristiques: list[str] = Field(default_factory=list)  # phrases du CCTP, avec source en clair
+
+
+class DemandeCotation(BaseModel):
+    """Brouillon de demande de prix (F4) : le choix des fournisseurs et l'envoi restent à SIE."""
+    id: str = Field(default_factory=lambda: nouvel_id("DC"))
+    lot: Optional[str] = None
+    famille: str
+    lignes: list[LigneCotation] = Field(default_factory=list)
+    echeance_retour: Optional[str] = None
+    pieces_utiles: list[str] = Field(default_factory=list)
+    fournisseurs: list[str] = Field(default_factory=list)  # saisis par SIE
+    statut: str = "brouillon"  # brouillon | relu | envoye_par_sie
+
+
+class LigneDevis(BaseModel):
+    id: str = Field(default_factory=lambda: nouvel_id("LD"))
+    designation: str
+    unite: Optional[str] = None
+    quantite: Optional[float] = None
+    prix_unitaire: Optional[float] = None
+    ligne_quantite_id: Optional[str] = None  # association à un poste
+    score_association: float = 0.0
+    association_validee: bool = False
+
+
+class Devis(BaseModel):
+    id: str = Field(default_factory=lambda: nouvel_id("DV"))
+    fournisseur: str
+    fichier: Optional[str] = None
+    date: Optional[str] = None
+    lot: Optional[str] = None
+    lignes: list[LigneDevis] = Field(default_factory=list)
+
+
+class Coefficients(BaseModel):
+    """Saisis ou validés par SIE uniquement : l'outil ne choisit ni prix ni marge."""
+    taux_horaire: Optional[float] = None       # €/h
+    frais_generaux: Optional[float] = None     # en % du déboursé
+    aleas: Optional[float] = None              # en %
+    marge: Optional[float] = None              # en %
+
+
+class PosteDPGF(BaseModel):
+    ligne_quantite_id: Optional[str] = None
+    lot: Optional[str] = None
+    code: Optional[str] = None
+    designation: str
+    unite: Optional[str] = None
+    quantite: Optional[float] = None
+    prix_materiel: Optional[float] = None      # issu du devis retenu
+    devis_id: Optional[str] = None
+    fournisseur: Optional[str] = None
+    temps_pose_h: Optional[float] = None       # par unité, saisi par SIE
+    prix_unitaire_vente: Optional[float] = None
+    total: Optional[float] = None
+    alertes: list[str] = Field(default_factory=list)
+
+
+class Constat(BaseModel):
+    """Résultat d'un contrôle (F5 ou F7)."""
+    gravite: str  # bloquant | a_verifier | info
+    objet: str
+    message: str
 
 
 class Consultation(BaseModel):
@@ -191,6 +284,13 @@ class Consultation(BaseModel):
     pieces_a_fournir: list[PieceAFournir] = Field(default_factory=list)
     trame_memoire: list[SectionMemoire] = Field(default_factory=list)
     validations: list[Validation] = Field(default_factory=list)
+    # groupe 2
+    quantites: list[LigneQuantite] = Field(default_factory=list)
+    demandes_cotation: list[DemandeCotation] = Field(default_factory=list)
+    devis: list[Devis] = Field(default_factory=list)
+    coefficients: Coefficients = Field(default_factory=Coefficients)
+    dpgf: list[PosteDPGF] = Field(default_factory=list)
+    controles: list[Constat] = Field(default_factory=list)
     journal: list[str] = Field(default_factory=list)  # hypothèses, erreurs, limites
 
     def piece(self, piece_id: str) -> Optional[Piece]:

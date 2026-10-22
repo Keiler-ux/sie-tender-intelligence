@@ -36,3 +36,13 @@ def analyser_dce(dce: str | Path, bibliotheque: Bibliotheque | None = None, llm:
     if bibliotheque is None:
         c.journal.append("F6 : pas de bibliothèque d'archives fournie, trame sans passages proposés.")
     return c
+
+
+def analyser_affaire(affaire, bibliotheque: Bibliotheque | None = None, llm: ClientLLM | None = None) -> None:
+    """Analyse le DCE déposé dans une affaire en gardant son identifiant et le travail du groupe 2."""
+    r = analyser_dce(affaire.dossier("dce"), bibliotheque, llm)
+    c = affaire.c
+    for champ in ("pieces", "fiche", "lots", "exigences", "criteres", "pieces_a_fournir", "trame_memoire"):
+        setattr(c, champ, getattr(r, champ))
+    c.journal = r.journal
+    affaire.sauver()

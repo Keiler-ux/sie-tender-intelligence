@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# Données : jamais de document SIE dans le dépôt
+donnees/
+affaires/
+resultats/
+exemples/resultats/
+exemples/archives_index.json
+*.env
+.streamlit/secrets.toml

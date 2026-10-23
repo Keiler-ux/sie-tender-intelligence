@@ -102,7 +102,7 @@ Chaque réponse cite les pages du DCE utilisées, et chaque citation est recherc
 | Moteur | Réglages (variables d'environnement ou secrets Streamlit) | À savoir |
 | --- | --- | --- |
 | Aucun (défaut) | — | règles uniquement |
-| Claude | `ANTHROPIC_API_KEY`, `SIE_LLM_EXTERNE_AUTORISE = "oui"`, `SIE_LLM = "anthropic"` ; facultatif : `SIE_LLM_MODELE` (défaut `claude-opus-5-5`), `SIE_LLM_EFFORT` (`low`, `medium`, `high`) | service externe et payant (clé sur console.anthropic.com, facturée à part de l'abonnement Claude). Pour chaque affaire, l'utilisateur doit confirmer que le DCE est fictif, public ou couvert par un accord écrit de SIE. Coût estimé affiché après chaque réponse. |
+| Claude | `ANTHROPIC_API_KEY`, `SIE_LLM_EXTERNE_AUTORISE = "oui"`, `SIE_LLM = "anthropic"` ; facultatif : `SIE_LLM_MODELE` (défaut `claude-opus-5-5`), `SIE_LLM_EFFORT` (`low`, `medium`, `high`), `ANTHROPIC_WORKSPACE_ID` (si la clé n'est rattachée à aucun espace de travail) | service externe et payant (clé sur console.anthropic.com, facturée à part de l'abonnement Claude). Pour chaque affaire, l'utilisateur doit confirmer que le DCE est fictif, public ou couvert par un accord écrit de SIE. Coût estimé affiché après chaque réponse. |
 | Ollama | `SIE_LLM = "ollama"`, `SIE_LLM_MODELE` (ex. `mistral`) | gratuit, rien ne sort du poste ; version téléchargeable uniquement, PC avec 16 Go de RAM conseillés |
 
 Le moteur se choisit aussi dans la barre latérale (« Configurer l'IA ») parmi ceux qui sont disponibles.

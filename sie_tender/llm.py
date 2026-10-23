@@ -10,6 +10,7 @@ Trois moteurs, choisis par variables d'environnement (ou dans l'interface) :
     SIE_LLM_MODELE=...   modèle (défaut : claude-opus-5-5 pour Claude, mistral pour Ollama)
     SIE_LLM_EFFORT=...   low | medium | high (Claude, défaut medium)
     SIE_OLLAMA_URL=...   défaut http://localhost:11434
+    ANTHROPIC_WORKSPACE_ID=wrkspc_...  si la clé n'est rattachée à aucun espace de travail
 
 Chaque moteur sait faire trois choses :
 - json()       : réponse JSON libre (complément de la fiche F1) ;
@@ -166,7 +167,9 @@ class AnthropicLLM:
         if client is None:
             import anthropic
 
-            client = anthropic.Anthropic()
+            # Clé non rattachée à un espace de travail : l'API exige l'identifiant de l'espace en en-tête.
+            espace = os.getenv("ANTHROPIC_WORKSPACE_ID")
+            client = anthropic.Anthropic(default_headers={"anthropic-workspace-id": espace} if espace else None)
         self.client = client
         self.modele = modele or os.getenv("SIE_LLM_MODELE", "claude-opus-5-5")
         self.effort = os.getenv("SIE_LLM_EFFORT", "medium")
@@ -201,7 +204,11 @@ class AnthropicLLM:
                    "PermissionDeniedError": "la clé API n'a pas accès à ce modèle",
                    "RateLimitError": "trop de requêtes ou crédit API épuisé, réessayer plus tard",
                    "APIConnectionError": "connexion à l'API impossible",
-                   "NotFoundError": f"modèle « {self.modele} » introuvable"}.get(nom, f"{nom} {str(e)[:200]}")
+                   "NotFoundError": f"modèle « {self.modele} » introuvable"}.get(nom, f"{nom} {str(e)[:300]}")
+            if "workspace" in str(e).lower():
+                msg = ("la clé API n'est rattachée à aucun espace de travail : ajouter le secret ANTHROPIC_WORKSPACE_ID "
+                       "(identifiant wrkspc_… visible sur console.anthropic.com, Settings › Workspaces) "
+                       "ou créer une clé depuis un espace de travail")
             return None, Reponse("", erreur=f"Appel à Claude impossible : {msg}.")
         if getattr(rep, "stop_reason", None) == "refusal":
             return rep, Reponse("", cout_usd=self.cout(rep.usage), erreur="Claude a refusé de répondre à cette demande.")

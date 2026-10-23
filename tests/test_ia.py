@@ -93,3 +93,18 @@ def test_brouillon_et_synthese(dce, tmp_path):
     assert s.citations and s.citations[0].verifiee
     with pytest.raises(RuntimeError):
         ia.synthese_dce(c, [], AucunLLM())
+
+
+def test_espace_de_travail(monkeypatch):
+    monkeypatch.setenv("SIE_LLM_EXTERNE_AUTORISE", "oui")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-faux")
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "wrkspc_test")
+    m = AnthropicLLM()
+    assert m.client.default_headers.get("anthropic-workspace-id") == "wrkspc_test"
+
+    class Refus:
+        def create(self, **kw):
+            raise RuntimeError("This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header")
+    m.client = NS(beta=NS(messages=Refus()), messages=Refus())
+    r = m.texte("consigne", "contenu")
+    assert "ANTHROPIC_WORKSPACE_ID" in r.erreur

@@ -31,6 +31,8 @@ def environnement(tmp_path_factory):
     for f in (d / "exemples" / "dce_fictif_valbourg").iterdir():
         a.deposer("dce", f.name, f.read_bytes())
     analyser_affaire(a, Bibliotheque.charger(d / "index.json"))
+    a.c.fiche.decision = "GO"
+    a.c.lots[1].retenu = True
     a.c.quantites, _ = importer_quantites(d / "exemples" / "chiffrage_fictif" / "metre_lot02.xlsx")
     a.c.reponses_ia.append(ReponseIA(type="question", question="Date ?", texte="27 novembre", moteur="test",
                                      citations=[CitationIA(fichier="01_RC_Valbourg.pdf", page=2, extrait="x", verifiee=False)]))
@@ -50,3 +52,18 @@ def test_page(environnement, monkeypatch, page):
     at.session_state["_page_test"] = page
     at.run()
     assert not at.exception, [e.value for e in at.exception]
+
+
+@pytest.mark.parametrize("role,bloque", [("Bureau d'études", True), ("Direction", False)])
+def test_decision_reservee_a_la_direction(environnement, monkeypatch, role, bloque):
+    d, aid = environnement
+    for k, v in {"SIE_DATA": str(d), "SIE_ESPACE": str(d / "affaires"), "SIE_INDEX": str(d / "index.json"), "SIE_LLM": "aucun"}.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("SIE_MOT_DE_PASSE", raising=False)
+    at = AppTest.from_file(str(RACINE / "app.py"), default_timeout=120)
+    at.session_state["affaire"] = aid
+    at.session_state["_page_test"] = "fiche"
+    at.session_state["role"] = role
+    at.run()
+    assert not at.exception
+    assert at.get("button_group")[0].disabled is bloque

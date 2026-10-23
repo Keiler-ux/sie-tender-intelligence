@@ -81,6 +81,7 @@ class Lot(BaseModel):
     source: Optional[Source] = None
     retenu: Optional[bool] = None  # décision SIE, jamais automatique
     responsable: Optional[str] = None
+    activites: list[str] = Field(default_factory=list)  # CFO, CFA, SSI... repérées dans l'intitulé et le CCTP
 
 
 class CategorieExigence(str, Enum):
@@ -91,6 +92,7 @@ class CategorieExigence(str, Enum):
     INTERFACE = "interface"
     SITE_OCCUPE = "site_occupe"
     PLANNING = "planning"
+    PENALITE = "penalite"
 
 
 class Exigence(BaseModel):
@@ -137,12 +139,16 @@ class FicheRenseignement(BaseModel):
     visite_obligatoire: Champ = Field(default_factory=Champ.absent)
     contacts: Champ = Field(default_factory=Champ.absent)
     duree_validite_offres: Champ = Field(default_factory=Champ.absent)
+    intervenants: Champ = Field(default_factory=Champ.absent)  # BET, contrôleur technique, CSPS, OPC
     alertes: list[str] = Field(default_factory=list)
 
     # Décision : saisie par la direction SIE uniquement.
     decision: Optional[str] = None  # GO | NO GO
     decideur: Optional[str] = None
     date_decision: Optional[datetime] = None
+    # Après GO : saisis par SIE.
+    responsable_visite: Optional[str] = None
+    date_visite: Optional[str] = None
 
     def champs(self) -> dict[str, Champ]:
         return {k: v for k, v in self if isinstance(v, Champ)}
@@ -168,6 +174,8 @@ class SectionMemoire(BaseModel):
     ponderation: Optional[float] = None
     passages_proposes: list[Passage] = Field(default_factory=list)
     contenu: Optional[str] = None  # texte retenu et adapté par SIE
+    sources_reprises: list[Source] = Field(default_factory=list)  # passages d'archives repris dans le contenu
+    impose_par_acheteur: bool = False  # chapitre du cadre de réponse ou critère du RC
     statut: StatutSection = StatutSection.A_COMPLETER
     note: Optional[str] = None
 
@@ -176,6 +184,7 @@ class Validation(BaseModel):
     objet_id: str
     etape: str
     valideur: str
+    role: Optional[str] = None
     date: datetime = Field(default_factory=datetime.now)
     commentaire: Optional[str] = None
 
@@ -291,6 +300,17 @@ class ReponseIA(BaseModel):
     cout_usd: float = 0.0
 
 
+class ReferenceProposee(BaseModel):
+    """Affaire SIE comparable trouvée dans les archives ; SIE décide de la citer ou non."""
+    affaire: str
+    score: float
+    activite: Optional[str] = None
+    annee: Optional[int] = None
+    type: Optional[str] = None
+    resultat: Optional[str] = None
+    retenue: Optional[bool] = None
+
+
 class Consultation(BaseModel):
     id: str = Field(default_factory=lambda: nouvel_id("AFF"))
     dossier: str
@@ -314,6 +334,9 @@ class Consultation(BaseModel):
     # IA externe : accord enregistré pour cette affaire (DCE fictif ou public, ou accord SIE)
     ia_autorisation: Optional[str] = None
     reponses_ia: list[ReponseIA] = Field(default_factory=list)
+    references: list[ReferenceProposee] = Field(default_factory=list)
+    cadre_reponse: Optional[Source] = None  # pièce où l'acheteur impose le plan du mémoire
+    pieces_jointes_memoire: list[str] = Field(default_factory=list)  # planning, notes de calcul, synoptiques (hors outil)
 
     def piece(self, piece_id: str) -> Optional[Piece]:
         return next((p for p in self.pieces if p.id == piece_id), None)

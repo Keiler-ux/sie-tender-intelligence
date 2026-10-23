@@ -62,6 +62,8 @@ def controler(a: Affaire, aujourdhui: date | None = None) -> list[Constat]:
         ajout("bloquant", "Décision", "Décision GO non enregistrée par la direction.")
     if not any(l.retenu for l in c.lots):
         ajout("bloquant", "Lots", "Aucun lot retenu.")
+    if c.fiche.visite_obligatoire.valeur == "oui" and not c.fiche.responsable_visite:
+        ajout("a_verifier", "Visite", "Visite obligatoire : collaborateur chargé de la visite non désigné.")
     for nom, ch in c.fiche.champs().items():
         if ch.statut == Statut.A_VERIFIER and nom in ("date_limite_remise", "reference", "visite_obligatoire"):
             ajout("a_verifier", "Fiche", f"Champ « {nom} » non confirmé.")

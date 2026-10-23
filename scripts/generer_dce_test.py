@@ -117,7 +117,11 @@ RC_HOPITAL = [
     "La présente consultation porte sur la rénovation des installations électriques et de sécurité incendie du bâtiment B (médecine et SSR).\n"
     "Adresse du chantier : 2 rue de l'Hôpital, 44777 Saint-Aubin-sur-Erdre\n"
     "Maître d'ouvrage : Centre hospitalier fictif de Saint-Aubin-sur-Erdre, direction des travaux\n"
-    "Maître d'oeuvre : Groupement fictif Arc & Fluides, 5 boulevard Guist'hau, 44000 Nantes",
+    "Maître d'oeuvre : Groupement fictif Arc & Fluides, 5 boulevard Guist'hau, 44000 Nantes\n"
+    "Bureau d'études fluides : BET fictif Thermi-Conseil\n"
+    "Contrôleur technique : Bureau fictif Contrôle Ouest\n"
+    "Coordonnateur SPS : Cabinet fictif Prévention Chantiers 44\n"
+    "OPC : Société fictive Planif'Bât",
     "Le marché est passé en procédure adaptée. Il est décomposé comme suit :",
     "Lot 1 : Courants forts - distribution et éclairage\nLot 2 : Système de sécurité incendie (SSI de catégorie A)\nLot 3 : Courants faibles - appel malade et contrôle d'accès",
     "Les candidats peuvent répondre à un ou plusieurs lots.",
@@ -127,7 +131,8 @@ RC_HOPITAL = [
     "# 3. Conditions de participation",
     "La qualification APSAD I7 et F7 est exigée pour le lot 2.\n"
     "Pièces de candidature : DC1, DC2, attestations d'assurance RC et décennale, attestation URSSAF, références de travaux en milieu hospitalier.\n"
-    "Pièces de l'offre : acte d'engagement, BPU et DPGF du lot, mémoire technique, planning d'exécution.",
+    "Pièces de l'offre : acte d'engagement, BPU et DPGF du lot, mémoire technique, planning d'exécution.\n"
+    "Le mémoire technique respecte obligatoirement le cadre de réponse joint en annexe du présent règlement.",
     "---",
     "# 4. Jugement des offres",
     "Les critères retenus sont :",
@@ -173,6 +178,17 @@ CCTP_HOPITAL = {
           "# Article 2 - Interfaces",
           "Le déverrouillage des accès sur alarme incendie est commandé par le SSI du lot 2."],
 }
+
+CADRE_HOPITAL = [
+    "# ANNEXE 1 - CADRE DE REPONSE DU MEMOIRE TECHNIQUE",
+    "Le candidat présente son mémoire technique en suivant les chapitres ci-dessous, dans cet ordre. 10 pages maximum par lot.",
+    "Chapitre 1 - Organisation du chantier en établissement de santé occupé\n"
+    "1.1 Phasage par groupes de chambres\n"
+    "1.2 Mesures d'hygiène et de confinement\n"
+    "Chapitre 2 - Maintien de la sécurité incendie pendant les travaux\n"
+    "Chapitre 3 - Équipe affectée et habilitations\n"
+    "Chapitre 4 - Planning d'exécution détaillé",
+]
 
 # --- 3. Bailleur, DCE incomplet ---------------------------------------------
 
@@ -224,6 +240,7 @@ def generer(racine: Path) -> list[Path]:
         pdf(d / f"02_CCTP_Lot_0{lot}.pdf", blocs)
         _dpgf(d / f"03_DPGF_Lot_0{lot}.xlsx", f"DPGF lot {lot}", [(f"{lot}.1", "Poste à chiffrer", "ens")])
     _ae(d / "04_AE.docx", "CHSA-TX-2026-31")
+    pdf(d / "06_Annexe_cadre_de_reponse_memoire.pdf", CADRE_HOPITAL)
     (d / "05_plan_batiment_B.dwg").write_bytes(b"fichier DWG fictif")
     dossiers.append(d)
 

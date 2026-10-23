@@ -38,6 +38,7 @@ OCR des PDF scannés (facultatif) : installer Tesseract avec la langue français
 python scripts/generer_donnees_fictives.py exemples     # DCE, archives, métré et devis inventés
 python scripts/generer_dce_test.py exemples/dce_test      # 3 autres DCE : lot unique, 3 lots, DCE incomplet
 python scripts/demo_bout_en_bout.py exemples            # parcours F1 à F7 en ligne de commande
+python scripts/evaluer.py                                # qualité de l'extraction et temps, contre scripts/attendus/
 python -m pytest -q                                      # tests
 ```
 
@@ -49,6 +50,13 @@ streamlit run app.py
 ```
 
 Puis dans le navigateur : « Affaires » pour déposer un DCE (ou créer une affaire de démonstration), puis les étapes 1 à 7 dans l'ordre. Chaque page propose l'étape suivante en bas.
+
+Parcours prévu par le cahier des charges :
+
+- **Rôles** (barre latérale) : Direction, Bureau d'études, Chargé d'affaires, Responsable technique, Dossier final. Seule la direction enregistre le GO / NO GO ; chaque validation garde le nom et le rôle (historique sur la fiche et au contrôle).
+- **Fiche (F1)** : tous les lots avec les activités SIE repérées (CFO, CFA, SSI, CVC, plomberie, désenfumage), autres intervenants (BET, contrôleur technique, SPS, OPC). Les lots ne se cochent qu'après GO ; le collaborateur chargé de la visite et la date de visite se saisissent alors. Export dans le modèle Excel de SIE : balises `{{reference}}`, `{{objet}}`, `{{decision}}`, `{{responsable_visite}}`… et une ligne `{{lot_numero}} {{lot_intitule}} {{lot_retenu}}` répétée pour chaque lot.
+- **Analyse (F2)** : matrice d'interfaces lot × lot tirée des CCTP de tous les lots et des pièces communes, synthèse des seuls lots retenus (prestations, exigences, risques, interfaces, RSE dont heures d'insertion, questions) exportable en Word.
+- **Mémoire (F6)** : si le DCE contient un cadre de réponse, ses chapitres forment le plan, dans l'ordre ; sinon les critères du RC. Les passages repris gardent leur source, les références d'affaires comparables se choisissent, les pièces jointes (planning, notes de calcul, synoptiques) s'ajoutent, et la liste des compléments à fournir s'exporte en Word.
 
 ## Version téléchargeable (gratuite)
 
@@ -112,4 +120,6 @@ Le moteur se choisit aussi dans la barre latérale (« Configurer l'IA ») parmi
 - Les règles d'extraction ont été mises au point sur un DCE fictif : elles devront être ajustées sur les consultations historiques de SIE.
 - La recherche dans les archives est lexicale (BM25). Une recherche par vecteurs pourra être ajoutée si les essais le justifient.
 - L'association devis / postes est une proposition à valider ; la lecture des devis PDF ne gère que des lignes simples.
-- Le format de la fiche suit les champs du cahier des charges, à aligner sur le modèle exact de SIE.
+- Le format de la fiche suit les champs du cahier des charges ; l'export au modèle SIE attend que SIE fournisse son fichier.
+- Le score de `scripts/evaluer.py` sur les DCE fictifs ne mesure rien de réel (les règles ont été écrites sur ces DCE). Il servira sur les consultations historiques de SIE, avec des attendus écrits à la main et gardés hors du dépôt.
+- Les rôles ne sont pas des comptes : chacun choisit son rôle dans la barre latérale. Une vraie authentification par utilisateur reste à faire si SIE l'utilise en production.

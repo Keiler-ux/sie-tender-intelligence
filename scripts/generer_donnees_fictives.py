@@ -42,7 +42,9 @@ RC = [
     "Objet de la consultation : Réhabilitation des installations techniques du groupe scolaire des Tilleuls\n"
     "Lieu d'exécution : 12 rue des Tilleuls, 44999 Valbourg\n"
     "Maître d'ouvrage : Commune de Valbourg, Hôtel de ville, 1 place de la Mairie, 44999 Valbourg\n"
-    "Maître d'oeuvre : Cabinet fictif Atelier Durand Ingénierie, 8 quai Ouest, 44000 Nantes",
+    "Maître d'oeuvre : Cabinet fictif Atelier Durand Ingénierie, 8 quai Ouest, 44000 Nantes\n"
+    "Contrôleur technique : Bureau fictif Contrôle Ouest\n"
+    "Coordonnateur SPS : Cabinet fictif Prévention Chantiers 44",
     "# Article 2 - Procédure et décomposition en lots",
     "La présente consultation est passée selon une procédure adaptée ouverte. Les travaux sont répartis en lots :",
     "Lot 1 : Gros oeuvre - démolitions\nLot 2 : Electricité courants forts et courants faibles\nLot 3 : Plomberie sanitaires\nLot 4 : Chauffage ventilation climatisation",

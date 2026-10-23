@@ -67,6 +67,15 @@ MOTIFS: dict[str, list[re.Pattern]] = {
     ],
 }
 
+# Intervenants autres que MOA et MOE : on garde tous ceux qui sont nommés.
+INTERVENANTS: list[tuple[str, re.Pattern]] = [
+    ("Bureau d'études", re.compile(r"^\s*(?:bureau d'[ée]tudes?(?: techniques?)?(?: [a-zéè]+)?|\bBET\b)\s*(?:\([^)]*\))?\s*:\s*(?P<v>[^\n]{3,150})", I | re.M)),
+    ("Contrôleur technique", re.compile(r"^\s*(?:contr[ôo]leur technique|contr[ôo]le technique|bureau de contr[ôo]le)\s*(?:\([^)]*\))?\s*:\s*(?P<v>[^\n]{3,150})", I | re.M)),
+    ("Coordonnateur SPS", re.compile(r"^\s*(?:coordonn?ateur (?:en mati[èe]re de )?(?:SPS|s[ée]curit[ée] et (?:de )?protection de la sant[ée])|CSPS)\s*(?:\([^)]*\))?\s*:\s*(?P<v>[^\n]{3,150})", I | re.M)),
+    ("OPC", re.compile(r"^\s*(?:OPC|ordonnancement,? pilotage et coordination)\s*(?:\([^)]*\))?\s*:\s*(?P<v>[^\n]{3,150})", I | re.M)),
+    ("AMO", re.compile(r"^\s*(?:AMO|assistant (?:[àa] )?ma[iî]tr(?:e|ise) d'ouvrage)\s*(?:\([^)]*\))?\s*:\s*(?P<v>[^\n]{3,150})", I | re.M)),
+]
+
 _ORDRE = [TypePiece.RC, TypePiece.AE, TypePiece.CCAP, TypePiece.ANNEXE, TypePiece.CCTP, TypePiece.AUTRE]
 
 _LOT_LIGNE = re.compile(
@@ -106,6 +115,9 @@ def extraire_lots(pieces: list[Piece]) -> list[Lot]:
         t = premier(pieces_par_priorite(pieces, _ORDRE), [_LOT_UNIQUE])
         if t:
             lots["1"] = Lot(numero="1", intitule="Lot unique", source=t.source)
+    # Allotissement non trouvé : un lot à vérifier, pour que SIE puisse le retenir ou le corriger.
+    if not lots and not any(p.lot for p in pieces):
+        lots["1"] = Lot(numero="1", intitule="Lot unique (allotissement non trouvé dans le DCE, à vérifier)")
     # Pièces techniques par lot sans ligne de liste : on garde le lot, intitulé à vérifier.
     for p in pieces:
         if p.lot and p.lot not in lots:
@@ -182,6 +194,12 @@ def construire_fiche(pieces: list[Piece], llm: ClientLLM | None = None, journal:
     if courriels:
         fiche.contacts.valeur = ", ".join(courriels[:5])
 
+    trouves = [(role, premier(ordonnees, [motif])) for role, motif in INTERVENANTS]
+    trouves = [(role, t) for role, t in trouves if t]
+    if trouves:
+        fiche.intervenants = Champ(valeur="\n".join(f"{role} : {t.valeur.strip()}" for role, t in trouves),
+                                   source=trouves[0][1].source, statut=Statut.EXTRAIT)
+
     # Visite obligatoire : oui / non / à vérifier, avec la source.
     t_obl = premier(ordonnees, [re.compile(r"visite[^.\n]{0,60}(?P<v>obligatoire|facultative|conseill[ée]e|recommand[ée]e)", I)])
     if t_obl:
@@ -194,7 +212,7 @@ def construire_fiche(pieces: list[Piece], llm: ClientLLM | None = None, journal:
     _completer_llm(fiche, pieces, llm, journal)
     fiche.alertes = _alertes(pieces)
     lots = extraire_lots(pieces)
-    if not lots:
+    if not lots or lots[0].source is None:
         journal.append("F1 : aucune liste de lots trouvée (marché à lot unique ?), à vérifier.")
     if not any(p.type == TypePiece.RC for p in pieces):
         journal.append("F1 : aucun règlement de consultation reconnu dans le DCE.")

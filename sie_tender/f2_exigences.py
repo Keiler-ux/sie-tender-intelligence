@@ -18,7 +18,7 @@ I = re.IGNORECASE
 
 # --- RSE -------------------------------------------------------------------
 RSE: dict[str, list[str]] = {
-    "insertion": [r"insertion (?:professionnelle|sociale)", r"clause sociale", r"heures? d'insertion", r"personnes? eloignees? de l'emploi"],
+    "insertion": [r"insertion (?:professionnelle|sociale)", r"parcours d'insertion", r"clause sociale", r"heures? d'insertion", r"personnes? eloignees? de l'emploi"],
     "dechets": [r"dechets?", r"\btri\b", r"\bsoged\b", r"bordereaux? de suivi", r"valorisation", r"recycl"],
     "nuisances": [r"nuisances?", r"\bbruit", r"poussieres?", r"chantier (?:a faibles nuisances|propre|vert)"],
     "consommations": [r"consommations? (?:d'energie|d'eau|energetiques?)", r"economies? d'energie", r"sobriete"],
@@ -27,12 +27,15 @@ RSE: dict[str, list[str]] = {
 }
 
 INTERFACE = [r"a la charge du lot", r"fourni(?:e|s)? (?:et pose(?:e|s)? )?par le lot", r"en coordination avec (?:le|les) lots?",
-             r"limites? de prestations?", r"reservations?", r"asservissements?", r"\bssi\b", r"desenfumage",
-             r"alimentations? electriques? (?:des|du|de la)", r"interfaces? avec", r"lot (?:cvc|plomberie|electricite|gros oeuvre|platrerie|faux plafonds)"]
+             r"limites? de prestations?", r"reservations?", r"asservissements?",
+             r"alimentations? electriques? (?:des|du|de la)", r"\balimente\b", r"commandee? par le (?:ssi|lot)", r"interfaces? avec",
+             r"lot (?:cvc|plomberie|electricite|gros oeuvre|platrerie|faux plafonds)", r"tous corps d'etat", r"compte prorata",
+             r"entreprises? (?:des|titulaires? des) autres lots"]
 SITE_OCCUPE = [r"site occupe", r"milieu occupe", r"maintien (?:en activite|de l'activite|en exploitation)", r"travaux de nuit",
                r"\bphasage\b", r"horaires? (?:d'intervention|de travail)", r"etablissement (?:ouvert|en activite)"]
 PLANNING = [r"delai d'execution", r"periode de preparation", r"duree (?:des travaux|du marche|globale)", r"date previsionnelle de (?:debut|demarrage)"]
 ELIMINATOIRE = [r"sous peine", r"irrecevable", r"sera rejete", r"seront rejetes", r"sera elimine", r"obligatoirement", r"exige(?:e|es|s)? sous"]
+PENALITE = [r"penalites?", r"retenues? (?:de|pour) retard"]
 TECHNIQUE = [r"nf c ?\d{2}[- ]?\d{3}", r"\bdtu\b", r"conforme(?:ment)? (?:a|aux) (?:la )?normes?", r"\bnf en\b", r"apsad", r"reglementation (?:erp|incendie|thermique)"]
 
 PIECES_CONNUES: list[tuple[str, str, str]] = [
@@ -106,10 +109,14 @@ def extraire_exigences(pieces: list[Piece]) -> list[Exigence]:
                 if _cherche(motifs, n):
                     ajouter(CategorieExigence.RSE, ph, src, p.lot, sous)
                     break
-            if p.type == TypePiece.CCTP and _cherche(INTERFACE, n):
+            # Interfaces : CCTP de tous les lots (même non retenus) et pièces communes (CCAP).
+            if p.type in (TypePiece.CCTP, TypePiece.CCAP):
                 cites = [l for l in _lots_cites(n) if l != p.lot]
-                sous = f"lot {p.lot or '?'} -> lot {', '.join(cites)}" if cites else "interface entre corps d'état"
-                ajouter(CategorieExigence.INTERFACE, ph, src, p.lot, sous)
+                if _cherche(INTERFACE, n) or (p.type == TypePiece.CCTP and cites):
+                    sous = f"lot {p.lot or 'commun'} -> lot {', '.join(cites)}" if cites else "interface entre corps d'état"
+                    ajouter(CategorieExigence.INTERFACE, ph, src, p.lot, sous)
+            if p.type in (TypePiece.CCAP, TypePiece.CCTP, TypePiece.AE) and _cherche(PENALITE, n):
+                ajouter(CategorieExigence.PENALITE, ph, src, p.lot)
             if _cherche(SITE_OCCUPE, n):
                 ajouter(CategorieExigence.SITE_OCCUPE, ph, src, p.lot)
             if _cherche(PLANNING, n):

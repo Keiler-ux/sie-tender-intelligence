@@ -1,0 +1,9 @@
+{
+  "fiche": {
+    "reference": "CD-LB-2026-087",
+    "date_limite_remise": "15/12/2026",
+    "visite_obligatoire": "non"
+  },
+  "lots": ["1"],
+  "heures_insertion": [120]
+}

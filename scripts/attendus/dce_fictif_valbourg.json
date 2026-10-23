@@ -1,0 +1,15 @@
+{
+  "fiche": {
+    "reference": "VAL-2026-014",
+    "lieu": "12 rue des Tilleuls",
+    "maitre_ouvrage": "Commune de Valbourg",
+    "procedure": "procédure adaptée",
+    "date_limite_remise": "27 novembre 2026",
+    "visite_obligatoire": "oui",
+    "intervenants": "Contrôle Ouest"
+  },
+  "lots": ["1", "2", "3", "4"],
+  "criteres": {"Prix des prestations": 40, "Valeur technique": 60},
+  "interfaces_min": 3,
+  "heures_insertion": [70]
+}

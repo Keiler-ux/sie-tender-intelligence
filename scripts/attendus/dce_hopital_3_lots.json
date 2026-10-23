@@ -1,0 +1,14 @@
+{
+  "fiche": {
+    "reference": "CHSA-TX-2026-31",
+    "date_limite_remise": "8 janvier 2027",
+    "visite_obligatoire": "oui",
+    "duree_validite_offres": "180 jours",
+    "intervenants": "Planif'Bât"
+  },
+  "lots": ["1", "2", "3"],
+  "criteres": {"Valeur technique": 50, "Prix": 40, "Délai d'exécution": 10},
+  "interfaces_min": 3,
+  "heures_insertion": [],
+  "cadre_reponse": true
+}

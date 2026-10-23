@@ -191,36 +191,105 @@ SECTIONS_SIE = [
 _A_COMPLETER_PAR_SIE = {"Organisation de l'équipe projet", "Moyens humains", "Moyens matériels", "Planning d'exécution"}
 
 
+# --- Cadre de réponse imposé par l'acheteur -------------------------------------------
+_CADRE = re.compile(r"cadre (?:de (?:la )?reponse|du memoire|de memoire)|trame (?:du|de) memoire|memoire technique (?:comprendra|sera (?:structure|presente|organise)|respectera|suivra)"
+                    r"|(?:en suivant|selon) les chapitres", re.I)
+_CHAPITRE = re.compile(r"^\s*(?:(?:chapitre|partie)\s+(?P<c>\d+|[IVX]+)|(?P<n>\d{1,2}(?:\.\d{1,2}){0,2}))\s*[.)]?\s*[-–:.]?\s+(?P<t>[A-ZÀ-Ýa-zà-ý][^\n]{3,140})$", re.M | re.I)
+
+
+@dataclass
+class ChapitreCadre:
+    numero: str
+    titre: str
+    niveau: int
+    source: Source
+
+
+def cadre_reponse(pieces) -> list[ChapitreCadre]:
+    """Chapitres du mémoire imposés par l'acheteur (cadre de réponse), dans leur ordre.
+
+    On cherche une page qui annonce un cadre de réponse, puis ses lignes numérotées.
+    Les lignes de barème (« ... : 20 % ») sont écartées : ce sont des critères.
+    """
+    from .models import TypePiece
+    from .recherche_texte import source
+
+    ordre = {TypePiece.ANNEXE: 0, TypePiece.AUTRE: 1, TypePiece.RC: 2}
+    for p in sorted((p for p in pieces if p.type in ordre and p.lisible and p.pages), key=lambda p: (ordre[p.type], p.fichier)):
+        chapitres: list[ChapitreCadre] = []
+        for page in p.pages:
+            m_cadre = _CADRE.search(normaliser(page.texte))
+            if not m_cadre and not chapitres:
+                continue
+            for m in _CHAPITRE.finditer(page.texte):
+                titre = m.group("t").strip(" .:-–")
+                if re.search(r"\d\s*(?:%|points?)\s*$", titre) or re.match(r"(?:article|lot|pages?|jours?|mois|semaines?|heures?|euros?|ans?|ml|m2|kg)\b", titre, re.I):
+                    continue
+                numero = m.group("c") or m.group("n")
+                niveau = 1 if m.group("c") else numero.count(".") + 1
+                chapitres.append(ChapitreCadre(numero, titre, niveau, source(p, page.numero, page.texte, m.start(), m.end())))
+        if len(chapitres) >= 2:
+            return chapitres
+    return []
+
+
 def _est_prix(c: Critere) -> bool:
     return bool(re.search(r"\bprix\b|montant|cout|financ", normaliser(c.intitule)))
 
 
+def _critere_proche(titre: str, criteres: list[Critere]) -> tuple[str | None, float | None]:
+    """Critère (ou sous-critère) du RC qui partage le plus de mots avec un chapitre du cadre."""
+    mots = set(jetons(titre))
+    meilleur, score = (None, None), 1
+    for c in criteres:
+        for sc in [c] + c.sous_criteres:
+            commun = len(mots & set(jetons(sc.intitule)))
+            if commun > score:
+                meilleur, score = (c.intitule if sc is c else f"{c.intitule} › {sc.intitule}", sc.ponderation), commun
+    return meilleur
+
+
 def construire_trame(criteres: list[Critere], biblio: Bibliotheque | None, contexte: str = "",
-                     journal: list[str] | None = None) -> list[SectionMemoire]:
+                     journal: list[str] | None = None, cadre: list[ChapitreCadre] | None = None) -> list[SectionMemoire]:
     journal = journal if journal is not None else []
     sections: list[SectionMemoire] = []
     techniques = [c for c in criteres if not _est_prix(c)]
-    if not techniques:
-        journal.append("F6 : aucun critère technique trouvé dans le RC ; trame par défaut SIE, à vérifier.")
-    for c in techniques:
-        enfants = c.sous_criteres or [c]
-        for sc in enfants:
-            sections.append(SectionMemoire(titre=sc.intitule, critere=c.intitule, ponderation=sc.ponderation))
-    titres = {normaliser(s.titre) for s in sections}
-    for titre, _ in SECTIONS_SIE:
-        mots = set(jetons(titre))
-        if not any(mots & set(jetons(t)) for t in titres):
-            sections.append(SectionMemoire(titre=titre, note="Section habituelle des mémoires SIE, non imposée par le RC."))
+    a_completer: set[str] = set()
+    if cadre:
+        # Le cadre de l'acheteur prime : on garde ses chapitres, dans son ordre, sans en ajouter.
+        journal.append(f"F6 : cadre de réponse imposé trouvé ({cadre[0].source.fichier}) : {len(cadre)} chapitres repris tels quels.")
+        for ch in cadre:
+            critere, pond = _critere_proche(ch.titre, techniques)
+            sections.append(SectionMemoire(titre=f"{ch.numero} {ch.titre}" if ch.niveau > 1 else f"Chapitre {ch.numero} - {ch.titre}",
+                                           critere=critere, ponderation=pond, impose_par_acheteur=True,
+                                           note=f"Chapitre imposé par le cadre de réponse ({ch.source.fichier}, p. {ch.source.page})."))
+            n = normaliser(ch.titre)
+            if re.search(r"equipe|organigramme|moyens|effectif|habilitation|planning|delai", n):
+                a_completer.add(sections[-1].titre)
+    else:
+        if not techniques:
+            journal.append("F6 : aucun critère technique trouvé dans le RC ; trame par défaut SIE, à vérifier.")
+        for c in techniques:
+            enfants = c.sous_criteres or [c]
+            for sc in enfants:
+                sections.append(SectionMemoire(titre=sc.intitule, critere=c.intitule, ponderation=sc.ponderation,
+                                               impose_par_acheteur=True))
+        titres = {normaliser(s.titre) for s in sections}
+        for titre, _ in SECTIONS_SIE:
+            mots = set(jetons(titre))
+            if not any(mots & set(jetons(t)) for t in titres):
+                sections.append(SectionMemoire(titre=titre, note="Section habituelle des mémoires SIE, non imposée par le RC."))
+        a_completer = set(_A_COMPLETER_PAR_SIE)
     requetes = dict(SECTIONS_SIE)
     for s in sections:
-        if s.titre in _A_COMPLETER_PAR_SIE:
+        if s.titre in a_completer:
             s.statut = StatutSection.A_COMPLETER
             s.note = (s.note + " " if s.note else "") + "À compléter par le bureau d'études (données propres à l'affaire)."
         if biblio is None:
             continue
         passages = biblio.rechercher(f"{s.titre} {requetes.get(s.titre, '')}", k=5)
         s.passages_proposes = passages
-        if passages and s.titre not in _A_COMPLETER_PAR_SIE:
+        if passages and s.titre not in a_completer:
             s.statut = StatutSection.PROPOSE
         elif not passages:
             s.statut = StatutSection.A_COMPLETER
@@ -264,6 +333,21 @@ def proposer_pieces(pieces_a_fournir: list[PieceAFournir], biblio: Bibliotheque 
                 pf.statut = Statut.A_VERIFIER
                 journal.append(f"F6 : {pf.intitule} : validité de {pf.document_propose} non trouvée, à vérifier.")
             break
+
+
+def references_similaires(biblio: Bibliotheque | None, contexte: str, k: int = 3):
+    """Affaires SIE comparables, avec les métadonnées de leur fiche (affaire.json). Rien n'est ajouté."""
+    from .models import ReferenceProposee
+
+    if biblio is None:
+        return []
+    meta = {d.affaire: d.meta for d in biblio.documents}
+    out = []
+    for affaire, score in biblio.affaires_similaires(contexte, k):
+        m = meta.get(affaire) or {}
+        out.append(ReferenceProposee(affaire=affaire, score=score, activite=m.get("activite"), annee=m.get("annee"),
+                                     type=m.get("type"), resultat=m.get("resultat")))
+    return out
 
 
 def contexte_affaire(objet: str | None, lots: list[Lot]) -> str:

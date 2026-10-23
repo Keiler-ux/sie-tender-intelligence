@@ -41,8 +41,8 @@ class Affaire:
         chemin.write_bytes(contenu)
         return chemin
 
-    def valider(self, objet_id: str, etape: str, valideur: str, commentaire: str | None = None) -> None:
-        self.c.validations.append(Validation(objet_id=objet_id, etape=etape, valideur=valideur,
+    def valider(self, objet_id: str, etape: str, valideur: str, commentaire: str | None = None, role: str | None = None) -> None:
+        self.c.validations.append(Validation(objet_id=objet_id, etape=etape, valideur=valideur, role=role,
                                              date=datetime.now(), commentaire=commentaire))
 
     def est_valide(self, etape: str) -> bool:

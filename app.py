@@ -22,7 +22,9 @@ import streamlit as st
 
 from sie_tender import ia
 from sie_tender.affaire import Affaire, EspaceTravail
-from sie_tender.export import LIBELLES, exporter_excel, exporter_trame_docx, ref
+from sie_tender.export import (LIBELLES, complements_a_demander, exporter_complements_docx, exporter_excel,
+                               exporter_fiche_modele, exporter_trame_docx, ref)
+from sie_tender.f2_synthese import exporter_synthese_docx, heures_insertion, matrice_interfaces, syntheses_retenues, tableau_croise
 from sie_tender.f3_quantites import importer_quantites
 from sie_tender.f4_cotations import exporter_demandes, generer_demandes, lire_date, texte_courriel
 from sie_tender.f5_dpgf import _prix_vente, associer, construire_dpgf, exporter_dpgf, importer_devis
@@ -151,6 +153,9 @@ def _export(_a: Affaire, nom: str, mtime: float) -> bytes:
         chemin = Path(t) / nom
         {"analyse_dce.xlsx": lambda: exporter_excel(_a.c, chemin),
          "Memoire_technique.docx": lambda: exporter_trame_docx(_a.c, chemin),
+         "Synthese_lots_retenus.docx": lambda: exporter_synthese_docx(_a.c, pieces_texte(_a), chemin),
+         "Complements_memoire.docx": lambda: exporter_complements_docx(_a.c, chemin),
+         "Fiche_renseignement.xlsx": lambda: exporter_fiche_modele(_a.c, _a.dossier("exports") / "modele_fiche.xlsx", chemin),
          "demandes_cotation.xlsx": lambda: exporter_demandes(_a.c, chemin),
          "DPGF.xlsx": lambda: exporter_dpgf(_a.c, chemin, _a.dossier("exports") / "modele_dpgf.xlsx"
                                             if (_a.dossier("exports") / "modele_dpgf.xlsx").exists() else None)}[nom]()
@@ -158,13 +163,30 @@ def _export(_a: Affaire, nom: str, mtime: float) -> bytes:
 
 
 def bouton_export(a: Affaire, label: str, nom: str) -> None:
-    donnees = _export(a, nom, _mtime(a.racine / "consultation.json"))
+    modeles = [_mtime(f) for f in a.dossier("exports").glob("modele_*.xlsx")]
+    donnees = _export(a, nom, max([_mtime(a.racine / "consultation.json")] + modeles))
     st.download_button(label, donnees, file_name=nom, icon=":material/download:", key=f"dl_{nom}")
 
 
 # --- Outils d'affichage -----------------------------------------------------------------
 def utilisateur() -> str:
     return st.session_state.get("utilisateur") or "?"
+
+
+ROLES = ["Direction", "Bureau d'études", "Chargé d'affaires", "Responsable technique", "Dossier final"]
+
+
+def role() -> str:
+    return st.session_state.get("role") or ROLES[1]
+
+
+def historique(a: Affaire) -> None:
+    if not a.c.validations:
+        st.caption("Aucune validation enregistrée.")
+        return
+    st.dataframe(pd.DataFrame([{"Date": v.date, "Étape": v.etape, "Par": v.valideur, "Rôle": v.role or "", "Commentaire": v.commentaire or ""}
+                               for v in reversed(a.c.validations)]), hide_index=True, width="stretch",
+                 column_config={"Date": st.column_config.DatetimeColumn(format="DD/MM/YYYY HH:mm")})
 
 
 def jours_restants(limite: date | None) -> str:
@@ -213,7 +235,7 @@ def suivant(cle: str, label: str) -> None:
         st.switch_page(PAGES[cle])
 
 
-CATEGORIES = {"RSE": "RSE", "eliminatoire": "Éliminatoire", "interface": "Interfaces", "planning": "Planning",
+CATEGORIES = {"RSE": "RSE", "eliminatoire": "Éliminatoire", "interface": "Interfaces", "planning": "Planning", "penalite": "Pénalités",
               "site_occupe": "Site occupé", "technique": "Technique", "administrative": "Administratif"}
 
 STATUT_AFFICHE = {Statut.EXTRAIT: "✅ extrait", Statut.A_VERIFIER: "⚠️ à vérifier", Statut.CORRIGE: "✏️ corrigé",
@@ -409,7 +431,7 @@ def page_fiche() -> None:
     carte(cols[3], "Champs à vérifier", str(a_verif), f"sur {len(f.champs())}")
     st.write("")
 
-    gauche, droite = st.columns([3, 2], gap="large")
+    gauche, droite = st.columns([5, 4], gap="large")
     with gauche:
         st.subheader("Renseignements")
         st.caption("Corrige directement dans le tableau. « À vérifier » : information absente ou incertaine, l'outil n'invente rien.")
@@ -429,13 +451,18 @@ def page_fiche() -> None:
                         _completer_llm(c.fiche, pieces_texte(a), moteur, c.journal)
                     a.sauver()
                     st.rerun()
+    go = c.fiche.decision == "GO"
     with droite:
         st.subheader("Lots")
-        lots_df = st.data_editor(pd.DataFrame([{"N°": l.numero, "Intitulé": l.intitule, "Retenu": bool(l.retenu),
-                                                "Responsable": l.responsable or ""} for l in c.lots]),
-                                 disabled=["N°"], hide_index=True, width="stretch", key=f"lots_{a.id}",
+        st.caption("Tous les lots du DCE. Les lots se cochent après la décision GO de la direction." if not go
+                   else "Coche les lots auxquels SIE répond : seuls ceux-là sont analysés en détail et chiffrés.")
+        lots_df = st.data_editor(pd.DataFrame([{"N°": l.numero, "Intitulé": l.intitule, "Activités": ", ".join(l.activites),
+                                                "Retenu": bool(l.retenu), "Responsable": l.responsable or ""} for l in c.lots]),
+                                 disabled=["N°", "Activités"] + ([] if go else ["Retenu", "Responsable"]), hide_index=True,
+                                 width="stretch", key=f"lots_{a.id}_{go}",
                                  column_config={"N°": st.column_config.TextColumn(width="small"),
-                                                "Retenu": st.column_config.CheckboxColumn(help="Lots auxquels SIE répond", width="small"),
+                                                "Activités": st.column_config.TextColumn(width="small", help="Activités SIE repérées dans l'intitulé et le CCTP du lot"),
+                                                "Retenu": st.column_config.CheckboxColumn(help="Lots auxquels SIE répond (après GO)", width="small"),
                                                 "Intitulé": st.column_config.TextColumn(width="medium"),
                                                 "Responsable": st.column_config.TextColumn(width="small")})
         if not c.lots:
@@ -447,26 +474,63 @@ def page_fiche() -> None:
                 with st.expander(libelle, icon=":material/priority_high:"):
                     st.markdown(f'<div class="sie-citation">« {extrait}</div>', unsafe_allow_html=True)
     st.subheader("Décision de la direction")
+    direction = role() == "Direction"
     with st.form("decision", border=True):
         c1, c2 = st.columns([2, 3])
         options = ["(non décidée)", "GO", "NO GO"]
-        decision = c1.segmented_control("Décision", options, default=c.fiche.decision or "(non décidée)")
+        decision = c1.segmented_control("Décision", options, default=c.fiche.decision or "(non décidée)", disabled=not direction)
         c2.caption(f"Décision actuelle : {c.fiche.decision or 'non prise'}"
                    + (f" par {c.fiche.decideur} le {c.fiche.date_decision:%d/%m/%Y}" if c.fiche.date_decision else ""))
+        if not direction:
+            c2.caption("La décision est réservée au rôle « Direction » (barre latérale).")
+        elif not st.session_state.get("utilisateur"):
+            c2.caption("Renseigne ton nom dans la barre latérale : il est enregistré avec la décision.")
+        v1, v2 = st.columns(2)
+        resp = v1.text_input("Collaborateur chargé de la visite", c.fiche.responsable_visite or "", disabled=not go,
+                             help="Renseigné par SIE après GO.")
+        date_v = v2.date_input("Date de la visite", value=lire_date(c.fiche.date_visite) if c.fiche.date_visite else None,
+                               format="DD/MM/YYYY", disabled=not go)
         if st.form_submit_button("Enregistrer et valider la fiche", type="primary", icon=":material/save:"):
             for _, r in df.iterrows():
                 ch: Champ = getattr(c.fiche, r["cle"])
                 if (r["Valeur"] or None) != ch.valeur:
                     ch.valeur, ch.statut, ch.methode = r["Valeur"] or None, Statut.CORRIGE, "saisie"
             for l, (_, r) in zip(c.lots, lots_df.iterrows()):
-                l.intitule, l.retenu, l.responsable = r["Intitulé"], bool(r["Retenu"]), r["Responsable"] or None
-            if decision and decision != "(non décidée)":
+                l.intitule, l.responsable = r["Intitulé"], r["Responsable"] or None
+                if go:
+                    l.retenu = bool(r["Retenu"])
+            if direction and decision and decision != "(non décidée)" and decision != c.fiche.decision:
                 c.fiche.decision, c.fiche.decideur, c.fiche.date_decision = decision, utilisateur(), datetime.now()
-            a.valider("fiche", "fiche", utilisateur())
+                a.valider("decision", "decision", utilisateur(), commentaire=decision, role=role())
+            if c.fiche.decision != "GO":
+                for l in c.lots:  # aucune sélection de lot sans GO
+                    l.retenu = False if c.fiche.decision == "NO GO" else None
+            if go:
+                c.fiche.responsable_visite = resp or None
+                c.fiche.date_visite = date_v.strftime("%d/%m/%Y") if date_v else None
+            a.valider("fiche", "fiche", utilisateur(), role=role())
             a.sauver()
             st.toast("Fiche enregistrée.", icon=":material/check_circle:")
             st.rerun()
-    bouton_export(a, "Exporter la fiche et l'analyse (Excel)", "analyse_dce.xlsx")
+    if go and not any(l.retenu for l in c.lots):
+        st.info("GO enregistré : coche maintenant les lots retenus puis enregistre.", icon=":material/check_box:")
+    with st.expander("Historique des validations", icon=":material/history:"):
+        historique(a)
+    e1, e2 = st.columns(2)
+    with e1:
+        bouton_export(a, "Exporter la fiche et l'analyse (Excel)", "analyse_dce.xlsx")
+    with e2:
+        modele = a.dossier("exports") / "modele_fiche.xlsx"
+        if modele.exists():
+            bouton_export(a, "Fiche au modèle SIE (Excel)", "Fiche_renseignement.xlsx")
+        with st.popover("Modèle de fiche SIE", icon=":material/upload_file:"):
+            st.caption("Fichier Excel de SIE avec des balises : {{reference}}, {{objet}}, {{lieu}}, {{maitre_ouvrage}}, "
+                       "{{date_limite_remise}}, {{visite}}, {{intervenants}}, {{decision}}, {{responsable_visite}}, "
+                       "{{date_visite}}... Une ligne avec {{lot_numero}}, {{lot_intitule}}, {{lot_retenu}} est répétée pour chaque lot.")
+            m = st.file_uploader("Modèle (.xlsx)", type=["xlsx"], key=f"modele_fiche_{a.id}")
+            if m and st.button("Enregistrer le modèle", type="primary"):
+                a.deposer("exports", "modele_fiche.xlsx", m.getvalue())
+                st.rerun()
     suivant("analyse", "analyse par lot")
 
 
@@ -482,9 +546,62 @@ def page_analyse() -> None:
     for col, cat in zip(cols, cats):
         carte(col, CATEGORIES.get(cat, cat), str(compte.get(cat, 0)))
     st.write("")
-    onglets = st.tabs([f"Exigences ({len(c.exigences)})", f"Critères ({len(c.criteres)})",
+    if c.fiche.decision != "GO" or not retenus:
+        st.info("L'analyse couvre toutes les pièces, y compris celles des lots non retenus. La synthèse détaillée porte sur "
+                "les lots cochés après GO (étape 1)." if c.fiche.decision != "NO GO" else "Décision NO GO : affaire non poursuivie.",
+                icon=":material/info:")
+    interfaces = matrice_interfaces(c)
+    onglets = st.tabs([f"Synthèse des lots retenus ({len(retenus)})", f"Interfaces ({len(interfaces)})",
+                       f"Exigences ({len(c.exigences)})", f"Critères ({len(c.criteres)})",
                        f"Pièces à fournir ({len(c.pieces_a_fournir)})", "Journal"])
     with onglets[0]:
+        if not retenus:
+            st.caption("Aucun lot retenu pour l'instant.")
+        heures = heures_insertion(c.exigences)
+        for s_lot in syntheses_retenues(c, pieces_texte(a)):
+            l = s_lot.lot
+            with st.expander(f"Lot {l.numero} : {l.intitule}" + (f" · {', '.join(l.activites)}" if l.activites else ""),
+                             expanded=len(retenus) == 1, icon=":material/inventory:"):
+                k = st.columns(4)
+                carte(k[0], "Prestations (CCTP)", str(len(s_lot.prestations)))
+                carte(k[1], "Risques", str(len(s_lot.risques)), "éliminatoire, pénalités, site occupé")
+                carte(k[2], "Interfaces", str(len(s_lot.interfaces)))
+                carte(k[3], "Heures d'insertion", ", ".join(e.texte for e in s_lot.heures_insertion) or "non demandé",
+                      ref(s_lot.heures_insertion[0].source) if s_lot.heures_insertion else "")
+                st.write("")
+                for titre_s, elements in (("Prestations", s_lot.prestations), ("Exigences techniques", s_lot.exigences_techniques),
+                                          ("Risques", s_lot.risques), ("RSE", s_lot.rse), ("Planning", s_lot.planning)):
+                    if elements:
+                        st.markdown(f"**{titre_s}**")
+                        st.dataframe(pd.DataFrame([{"Élément": e.texte, "Source": ref(e.source)} for e in elements]),
+                                     hide_index=True, width="stretch", column_config={"Élément": st.column_config.TextColumn(width="large")})
+                if s_lot.questions:
+                    st.markdown("**Questions et points à vérifier**")
+                    for q in s_lot.questions:
+                        st.markdown(f"- {q}")
+        if retenus:
+            bouton_export(a, "Télécharger la synthèse (Word)", "Synthese_lots_retenus.docx")
+        elif heures:
+            st.caption("Heures d'insertion demandées : " + ", ".join(f"{h} h ({ref(e.source)})" for h, e in heures))
+    with onglets[1]:
+        st.caption("Interfaces relevées dans les CCTP de tous les lots et dans les pièces communes, avec les contraintes "
+                   "communes (site occupé, phasage). Chaque ligne cite le DCE.")
+        axes, grille = tableau_croise(interfaces, c.lots)
+        if interfaces and c.lots:
+            st.markdown("**Matrice (nombre d'interfaces, lot d'origine en ligne, lot concerné en colonne)**")
+            mat = pd.DataFrame([[grille[o][l.numero] for l in c.lots] for o in axes],
+                               index=[o if o == "commun" else f"Lot {o}" + (" ★" if o in retenus else "") for o in axes],
+                               columns=[f"Lot {l.numero}" + (" ★" if l.retenu else "") for l in c.lots])
+            st.dataframe(mat.replace(0, ""), width="stretch")
+            st.caption("★ lot retenu par SIE")
+        seulement = st.toggle("Seulement les impacts sur les lots retenus", value=bool(retenus), disabled=not retenus)
+        vues = [i for i in interfaces if i.impacte_retenu or not seulement]
+        st.dataframe(pd.DataFrame([{"Origine": i.origine, "Lots concernés": ", ".join(i.concernes), "Nature": ", ".join(i.themes),
+                                    "Texte du DCE": i.texte, "Source": ref(i.source)} for i in vues]),
+                     hide_index=True, width="stretch", column_config={"Texte du DCE": st.column_config.TextColumn(width="large")})
+        if not interfaces:
+            st.warning("Aucune interface trouvée : vérifier les CCTP des autres lots.", icon=":material/warning:")
+    with onglets[2]:
         f1, f2, f3 = st.columns([2, 3, 3])
         lots = f1.multiselect("Lots", tous_lots, default=[x for x in tous_lots if not retenus or x in retenus + ["commun"]])
         choix_cats = f2.multiselect("Catégories", cats, default=cats, format_func=lambda x: CATEGORIES.get(x, x))
@@ -495,9 +612,7 @@ def page_analyse() -> None:
                                     "Exigence": e.texte, "Source": ref(e.source)} for e in ex]),
                      width="stretch", hide_index=True, height=min(38 + 35 * max(len(ex), 1), 560),
                      column_config={"Exigence": st.column_config.TextColumn(width="large")})
-        if not retenus:
-            st.caption("Aucun lot retenu pour l'instant (étape 1) : tous les lots sont affichés.")
-    with onglets[1]:
+    with onglets[3]:
         if not c.criteres:
             st.warning("Critères non trouvés dans le RC : à saisir.")
         total = sum(cr.ponderation or 0 for cr in c.criteres)
@@ -509,12 +624,12 @@ def page_analyse() -> None:
             for sc in cr.sous_criteres:
                 st.markdown(f"&nbsp;&nbsp;&nbsp;– {sc.intitule} : {sc.ponderation:g} %")
             st.caption(ref(cr.source))
-    with onglets[2]:
+    with onglets[4]:
         st.dataframe(pd.DataFrame([{"Étape": p.etape, "Pièce": p.intitule, "Document d'archive proposé": p.document_propose or "",
                                     "Validité": p.validite, "Statut": STATUT_AFFICHE[p.statut], "Source": ref(p.source)}
                                    for p in c.pieces_a_fournir]), hide_index=True, width="stretch",
                      column_config={"Validité": st.column_config.DateColumn(format="DD/MM/YYYY")})
-    with onglets[3]:
+    with onglets[5]:
         st.caption("Hypothèses, erreurs et limites relevées pendant l'analyse.")
         for j in c.journal:
             st.markdown("- " + j)
@@ -595,7 +710,7 @@ def page_quantites() -> None:
             q.statut, q.remarque = (Statut.VALIDE, None) if ok else (Statut.A_VERIFIER, q.remarque or "quantité ou unité manquante")
             nouvelles.append(q)
         c.quantites = nouvelles
-        a.valider("quantites", "quantites", utilisateur())
+        a.valider("quantites", "quantites", utilisateur(), role=role())
         a.sauver()
         st.toast("Métré enregistré.", icon=":material/check_circle:")
         st.rerun()
@@ -710,7 +825,7 @@ def page_dpgf() -> None:
                 p.alertes = [x for x in p.alertes if x != "Poste sans prix fournisseur"] + ["Prix saisi à la main"]
             p.prix_unitaire_vente = _prix_vente(p.prix_materiel, p.temps_pose_h, c)
             p.total = round(p.prix_unitaire_vente * p.quantite, 2) if p.prix_unitaire_vente is not None and p.quantite else None
-        a.valider("dpgf", "dpgf", utilisateur())
+        a.valider("dpgf", "dpgf", utilisateur(), role=role())
         a.sauver()
         st.rerun()
     bouton_export(a, "Télécharger la DPGF (Excel)", "DPGF.xlsx")
@@ -726,8 +841,13 @@ def page_memoire() -> None:
         return
     n_val = sum(s.statut == StatutSection.VALIDE for s in c.trame_memoire)
     st.progress(n_val / len(c.trame_memoire), text=f"{n_val} section(s) validée(s) sur {len(c.trame_memoire)}")
-    st.caption("Plan issu des critères du RC. Pour chaque section : reprendre un passage d'archive ou demander un brouillon "
-               "à l'IA, l'adapter, puis valider. Les [À COMPLÉTER] signalent ce que l'IA n'a pas pu tirer des archives.")
+    if c.cadre_reponse:
+        st.success(f"Plan repris du cadre de réponse imposé par l'acheteur ({ref(c.cadre_reponse)}), dans son ordre.",
+                   icon=":material/rule:")
+    else:
+        st.caption("Pas de cadre de réponse trouvé dans le DCE : plan issu des critères de notation du RC.")
+    st.caption("Pour chaque section : reprendre un passage d'archive ou demander un brouillon à l'IA, l'adapter, puis valider. "
+               "Les [À COMPLÉTER] signalent ce que l'outil n'a pas pu tirer des archives.")
     ia_active = moteur_choisi() != "aucun"
     for s in c.trame_memoire:
         pond = f" · {s.ponderation:g} %" if s.ponderation else ""
@@ -738,6 +858,8 @@ def page_memoire() -> None:
             gauche, droite = st.columns([1, 1], gap="large")
             with gauche:
                 texte = st.text_area("Texte de la section", s.contenu or "", height=320, key=f"txt_{s.id}")
+                if s.sources_reprises:
+                    st.caption("Sources reprises : " + " ; ".join(ref(x) for x in s.sources_reprises))
                 b1, b2 = st.columns(2)
                 if b1.button("Enregistrer", key=f"sv_{s.id}", icon=":material/save:", width="stretch"):
                     s.contenu = texte or None
@@ -761,6 +883,8 @@ def page_memoire() -> None:
                         st.markdown(f'<div class="sie-citation">{pa.texte}</div>', unsafe_allow_html=True)
                         if st.button("Reprendre ce passage", key=f"pr_{s.id}_{i}", icon=":material/add:"):
                             s.contenu = (s.contenu + "\n\n" if s.contenu else "") + pa.texte
+                            if pa.source not in s.sources_reprises:
+                                s.sources_reprises.append(pa.source)
                             s.statut = StatutSection.PROPOSE if s.statut == StatutSection.A_COMPLETER else s.statut
                             a.sauver()
                             st.session_state.pop(f"txt_{s.id}", None)
@@ -783,8 +907,42 @@ def page_memoire() -> None:
                             a.sauver()
                             st.session_state.pop(f"txt_{s.id}", None)
                             st.rerun()
+    st.subheader("Références d'affaires comparables")
+    if not c.references:
+        st.caption("Aucune affaire comparable dans les archives indexées.")
+    else:
+        st.caption("Proposées d'après les archives SIE. Coche celles à citer : rien n'est ajouté au mémoire sans ton choix.")
+        refs_df = st.data_editor(pd.DataFrame([{"Citer": bool(r.retenue), "Affaire": r.affaire, "Année": r.annee, "Type": r.type or "",
+                                                "Activité": r.activite or "", "Résultat": r.resultat or "", "Proximité": r.score}
+                                               for r in c.references]),
+                                 disabled=["Affaire", "Année", "Type", "Activité", "Résultat", "Proximité"], hide_index=True,
+                                 width="stretch", key=f"refs_{a.id}")
+        if st.button("Enregistrer le choix des références", icon=":material/save:"):
+            for r, (_, x) in zip(c.references, refs_df.iterrows()):
+                r.retenue = bool(x["Citer"])
+            a.sauver()
+            st.toast("Références enregistrées.")
+    st.subheader("Pièces jointes au mémoire")
+    st.caption("Planning, organigramme, notes de calcul, synoptiques produits hors outil par le bureau d'études.")
+    pj = st.file_uploader("Ajouter des pièces jointes", accept_multiple_files=True, key=f"pj_{a.id}")
+    if pj and st.button("Joindre", type="primary", icon=":material/attach_file:"):
+        for f in pj:
+            a.deposer("pieces_reponse", f.name, f.getvalue())
+            if f.name not in c.pieces_jointes_memoire:
+                c.pieces_jointes_memoire.append(f.name)
+        a.sauver()
+        st.rerun()
+    for nom in c.pieces_jointes_memoire:
+        st.markdown(f":material/attach_file: {nom}")
+    manques = complements_a_demander(c)
+    st.subheader(f"Compléments à fournir ({len(manques)})")
+    if manques:
+        st.dataframe(pd.DataFrame([{"Section": x, "À fournir": y} for x, y in manques]), hide_index=True, width="stretch")
+        bouton_export(a, "Télécharger la liste (Word)", "Complements_memoire.docx")
+    else:
+        st.success("Rien à compléter.", icon=":material/check_circle:")
     if n_val == len(c.trame_memoire) and not a.est_valide("memoire"):
-        a.valider("memoire", "memoire", utilisateur())
+        a.valider("memoire", "memoire", utilisateur(), role=role())
         a.sauver()
     bouton_export(a, "Télécharger le mémoire (Word)", "Memoire_technique.docx")
     suivant("controle", "contrôle et dossier")
@@ -823,6 +981,8 @@ def page_controle() -> None:
         z = Path(st.session_state["zip"])
         st.download_button("Télécharger le dossier", z.read_bytes(), file_name=z.name, icon=":material/download:")
         st.caption("Dossier destiné à la relecture et au dépôt manuel par SIE. Le dossier 04 est interne : ne pas le déposer.")
+    with st.expander("Suivi : historique des validations", icon=":material/history:"):
+        historique(a)
 
 
 def page_archives() -> None:
@@ -895,6 +1055,7 @@ with st.sidebar:
         st.markdown(f"**{titre}**")
         st.caption(f"{r['reference'] or aid} · remise {jours_restants(r['limite'])} · {r['etapes']}/4 étapes validées")
     st.text_input("Ton nom (pour les validations)", key="utilisateur", placeholder="Prénom Nom")
+    st.selectbox("Rôle", ROLES, key="role", index=1, help="La décision GO / NO GO est réservée à la direction.")
     with st.expander("Configurer l'IA", icon=":material/auto_awesome:"):
         dispo = _moteurs()
         st.radio("Moteur", dispo, format_func=lambda m: NOMS_MOTEURS.get(m, m), key="moteur",

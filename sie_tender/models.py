@@ -272,6 +272,25 @@ class Constat(BaseModel):
     message: str
 
 
+class CitationIA(BaseModel):
+    fichier: str
+    page: Optional[int] = None
+    extrait: str
+    verifiee: bool = False  # extrait retrouvé mot pour mot dans la pièce
+
+
+class ReponseIA(BaseModel):
+    """Réponse de l'IA, conservée avec ses citations pour relecture par SIE."""
+    id: str = Field(default_factory=lambda: nouvel_id("IA"))
+    type: str  # synthese | question | memoire
+    question: str
+    texte: str
+    citations: list[CitationIA] = Field(default_factory=list)
+    moteur: str
+    date: datetime = Field(default_factory=datetime.now)
+    cout_usd: float = 0.0
+
+
 class Consultation(BaseModel):
     id: str = Field(default_factory=lambda: nouvel_id("AFF"))
     dossier: str
@@ -292,6 +311,9 @@ class Consultation(BaseModel):
     dpgf: list[PosteDPGF] = Field(default_factory=list)
     controles: list[Constat] = Field(default_factory=list)
     journal: list[str] = Field(default_factory=list)  # hypothèses, erreurs, limites
+    # IA externe : accord enregistré pour cette affaire (DCE fictif ou public, ou accord SIE)
+    ia_autorisation: Optional[str] = None
+    reponses_ia: list[ReponseIA] = Field(default_factory=list)
 
     def piece(self, piece_id: str) -> Optional[Piece]:
         return next((p for p in self.pieces if p.id == piece_id), None)

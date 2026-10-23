@@ -5,4 +5,9 @@ maxUploadSize = 300
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#1f6fb2"
+primaryColor = "#1f5f99"
+baseRadius = "0.5rem"
+font = "sans-serif"
+
+[client]
+toolbarMode = "viewer"

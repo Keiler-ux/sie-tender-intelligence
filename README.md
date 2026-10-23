@@ -48,7 +48,7 @@ python -m sie_tender indexer exemples/archives_fictives --index archives_index.j
 streamlit run app.py
 ```
 
-Puis dans le navigateur : « Affaires » pour déposer un DCE, puis les étapes 1 à 7 dans l'ordre.
+Puis dans le navigateur : « Affaires » pour déposer un DCE (ou créer une affaire de démonstration), puis les étapes 1 à 7 dans l'ordre. Chaque page propose l'étape suivante en bas.
 
 ## Version téléchargeable (gratuite)
 
@@ -89,15 +89,23 @@ python -m sie_tender analyser chemin/vers/dce.zip --index archives_index.json --
 python -m sie_tender chercher "intervention en site occupé" --index archives_index.json
 ```
 
-## LLM (facultatif)
+## IA (facultative)
 
-| `SIE_LLM` | Effet |
-| --- | --- |
-| `aucun` (défaut) | règles uniquement |
-| `ollama` | modèle local via Ollama (`SIE_LLM_MODELE=mistral` par exemple), rien ne sort de la machine |
-| `anthropic` | API externe, bloquée sans `SIE_LLM_EXTERNE_AUTORISE=oui` |
+L'outil fonctionne sans IA. Quand elle est activée, elle ajoute :
 
-Le LLM ne sert qu'à compléter les champs de la fiche restés vides. Chaque réponse doit citer un extrait, qui est recherché dans la pièce : s'il n'y est pas, le champ reste « à vérifier ».
+- **Assistant IA** : synthèse du DCE pour la décision GO / NO GO, et questions libres sur le DCE ;
+- **Fiche** : complément des champs restés « à vérifier » ;
+- **Mémoire** : brouillon de section à partir des passages d'archives et des exigences du DCE, avec des `[À COMPLÉTER]` là où l'information manque (une section ne peut pas être validée tant qu'il en reste).
+
+Chaque réponse cite les pages du DCE utilisées, et chaque citation est recherchée mot pour mot dans les pièces : celles qu'on ne retrouve pas sont signalées « à vérifier ».
+
+| Moteur | Réglages (variables d'environnement ou secrets Streamlit) | À savoir |
+| --- | --- | --- |
+| Aucun (défaut) | — | règles uniquement |
+| Claude | `ANTHROPIC_API_KEY`, `SIE_LLM_EXTERNE_AUTORISE = "oui"`, `SIE_LLM = "anthropic"` ; facultatif : `SIE_LLM_MODELE` (défaut `claude-opus-5-5`), `SIE_LLM_EFFORT` (`low`, `medium`, `high`) | service externe et payant (clé sur console.anthropic.com, facturée à part de l'abonnement Claude). Pour chaque affaire, l'utilisateur doit confirmer que le DCE est fictif, public ou couvert par un accord écrit de SIE. Coût estimé affiché après chaque réponse. |
+| Ollama | `SIE_LLM = "ollama"`, `SIE_LLM_MODELE` (ex. `mistral`) | gratuit, rien ne sort du poste ; version téléchargeable uniquement, PC avec 16 Go de RAM conseillés |
+
+Le moteur se choisit aussi dans la barre latérale (« Configurer l'IA ») parmi ceux qui sont disponibles.
 
 ## Limites connues
 

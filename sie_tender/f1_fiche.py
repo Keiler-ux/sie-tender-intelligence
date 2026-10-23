@@ -140,7 +140,7 @@ def _completer_llm(fiche: FicheRenseignement, pieces: list[Piece], llm: ClientLL
     for p in pertinentes:
         for page in p.pages:
             bloc = f"\n=== {p.fichier} | page {page.numero} ===\n{page.texte}"
-            if taille + len(bloc) > 60000:
+            if taille + len(bloc) > min(60000, getattr(llm, "contexte_max", 60000) or 60000):
                 break
             morceaux.append(bloc)
             taille += len(bloc)
